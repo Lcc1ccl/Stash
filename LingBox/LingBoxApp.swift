@@ -6,9 +6,22 @@
 //
 
 import SwiftUI
+import RealmSwift
 
 @main
-struct LingBoxApp: App {
+struct LingBoxApp: SwiftUI.App {
+    
+    init() {
+        // Configure Realm to use the shared App Group container
+        let appGroupId = "group.com.chaosky.LingBox"
+        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) else {
+            fatalError("Shared App Group container not found. Check Entitlements.")
+        }
+        let realmURL = container.appendingPathComponent("default.realm")
+        let config = Realm.Configuration(fileURL: realmURL, schemaVersion: 2)
+        Realm.Configuration.defaultConfiguration = config
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()

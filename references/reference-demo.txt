@@ -1,0 +1,559 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Plus, 
+  Home, 
+  FolderHeart, 
+  Settings, 
+  Search, 
+  Sparkles, 
+  Share, 
+  ArrowUpRight, 
+  X,
+  Zap,
+  Image as ImageIcon,
+  MoreHorizontal,
+  Bookmark,
+  MessageSquare,
+  Send,
+  RefreshCw,
+  Bot
+} from 'lucide-react';
+
+// --- Configuration ---
+// 在实际运行时，环境会自动注入 API Key
+const apiKey = ""; 
+
+// --- Mock Data: 预置的模拟数据 ---
+const MOCK_DB = [
+  {
+    id: 1,
+    title: "DeepSeek 本地部署全指南 (Docker版)",
+    source: "Official Docs",
+    type: "article",
+    platform: "WeChat",
+    summary: "详细讲解了如何通过 Ollama 和 Docker 快速部署 DeepSeek-V3，包含了显存配置表。",
+    tags: ["LLM", "DevOps", "Docker"],
+    coverColor: "bg-blue-100",
+    coverEmoji: "🐳",
+    date: "10 mins ago"
+  },
+  {
+    id: 2,
+    title: "2025年独立开发者出海支付方案对比",
+    source: "IndieHacker",
+    type: "article",
+    platform: "Zhihu",
+    summary: "对比了 Stripe, LemonSqueezy 和 Paddle 的优缺点，重点分析了国内主体注册的难易度。",
+    tags: ["SaaS", "Payment", "Startup"],
+    coverColor: "bg-orange-100",
+    coverEmoji: "💸",
+    date: "2 hours ago"
+  },
+  {
+    id: 3,
+    title: "极简主义客厅软装搭配灵感",
+    source: "InteriorDaily",
+    type: "image",
+    platform: "Xiaohongshu",
+    summary: "黑白灰主色调，利用大叶植物增加生气。重点推荐了几个平价的中古灯具品牌。",
+    tags: ["Design", "Home", "Minimal"],
+    coverColor: "bg-stone-200",
+    coverEmoji: "🛋️",
+    date: "Yesterday"
+  }
+];
+
+// --- Mock Content Source for Simulation ---
+const EXTERNAL_CONTENT_POOL = [
+  {
+    title: "Midjourney v6.1 风格化参数秘籍 --sref",
+    platform: "Xiaohongshu",
+    type: "image",
+    coverEmoji: "🎨",
+    coverColor: "bg-purple-100",
+    content_raw: "...", 
+    ai_summary: "深度解析了 v6.1 版本中 Style Reference 的新用法，提供了 5 组可以直接抄作业的 Prompt。",
+    ai_tags: ["AI Art", "Design", "Prompt"]
+  },
+  {
+    title: "如何用 SwiftData 替代 CoreData?",
+    platform: "Medium",
+    type: "article",
+    coverEmoji: "🍎",
+    coverColor: "bg-red-100",
+    content_raw: "...",
+    ai_summary: "SwiftData 是苹果推出的新框架，大大简化了持久化代码。本文展示了 CRUD 的基本写法。",
+    ai_tags: ["iOS", "Swift", "Code"]
+  }
+];
+
+export default function StashApp() {
+  const [activeTab, setActiveTab] = useState('inbox');
+  const [items, setItems] = useState(MOCK_DB);
+  const [simulationState, setSimulationState] = useState('idle');
+  const [currentSimulatedItem, setCurrentSimulatedItem] = useState(null);
+  const [showDetail, setShowDetail] = useState(null);
+
+  // --- Gemini API Helper ---
+  const callGemini = async (prompt) => {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        }
+      );
+      const data = await response.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't process that.";
+    } catch (error) {
+      console.error("Gemini API Error:", error);
+      return "Error connecting to AI.";
+    }
+  };
+
+  // --- 模拟 iOS Share Extension 流程 ---
+  const simulateExternalShare = () => {
+    const randomItem = EXTERNAL_CONTENT_POOL[Math.floor(Math.random() * EXTERNAL_CONTENT_POOL.length)];
+    setCurrentSimulatedItem(randomItem);
+    setSimulationState('analyzing');
+
+    setTimeout(() => {
+      setSimulationState('processing');
+    }, 1500);
+
+    setTimeout(() => {
+      setSimulationState('success');
+      
+      const newItem = {
+        id: Date.now(),
+        title: randomItem.title,
+        source: randomItem.platform, 
+        type: randomItem.type,
+        platform: randomItem.platform,
+        summary: randomItem.ai_summary,
+        tags: randomItem.ai_tags,
+        coverColor: randomItem.coverColor,
+        coverEmoji: randomItem.coverEmoji,
+        date: "Just now"
+      };
+      
+      setItems(prev => [newItem, ...prev]);
+    }, 3500);
+
+    setTimeout(() => {
+      setSimulationState('idle');
+      setCurrentSimulatedItem(null);
+    }, 5000);
+  };
+
+  // --- Sub-Components ---
+
+  const TabBar = () => (
+    <div className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl border-t border-gray-100 pb-6 pt-3 px-6 flex justify-between items-center z-40">
+      <button onClick={() => setActiveTab('inbox')} className={`flex flex-col items-center gap-1 ${activeTab === 'inbox' ? 'text-black' : 'text-gray-400'}`}>
+        <Home size={24} strokeWidth={activeTab === 'inbox' ? 3 : 2} />
+        <span className="text-[10px] font-bold">Inbox</span>
+      </button>
+      
+      <div className="bg-black text-white p-4 rounded-full -mt-8 shadow-xl shadow-black/20 transform hover:scale-105 transition-transform cursor-pointer">
+        <Plus size={24} strokeWidth={3} />
+      </div>
+
+      <button onClick={() => setActiveTab('themes')} className={`flex flex-col items-center gap-1 ${activeTab === 'themes' ? 'text-black' : 'text-gray-400'}`}>
+        <FolderHeart size={24} strokeWidth={activeTab === 'themes' ? 3 : 2} />
+        <span className="text-[10px] font-bold">Themes</span>
+      </button>
+    </div>
+  );
+
+  const Header = () => (
+    <div className="px-6 pt-12 pb-6 bg-white sticky top-0 z-30">
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-slate-900">STASH</h1>
+          <p className="text-sm font-medium text-slate-400 tracking-wide">DIGITAL LOOT BOX</p>
+        </div>
+        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden">
+           <span className="text-xl">🧢</span>
+        </div>
+      </div>
+      
+      <div className="relative">
+        <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
+        <input 
+          type="text" 
+          placeholder="Search your loot..." 
+          className="w-full bg-gray-50 h-12 pl-12 rounded-2xl font-bold text-sm text-slate-700 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black/5 transition-all"
+        />
+      </div>
+    </div>
+  );
+
+  const ItemCard = ({ item }) => (
+    <div 
+      onClick={() => setShowDetail(item)}
+      className="bg-white p-4 rounded-3xl mb-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-50 active:scale-95 transition-transform duration-200 cursor-pointer"
+    >
+      <div className="flex gap-4">
+        <div className={`w-20 h-20 ${item.coverColor} rounded-2xl flex items-center justify-center text-3xl flex-shrink-0`}>
+          {item.coverEmoji}
+        </div>
+        
+        <div className="flex-1 flex flex-col justify-between py-0.5">
+          <div>
+            <div className="flex justify-between items-start">
+              <h3 className="font-bold text-slate-900 leading-tight line-clamp-2 text-[15px]">{item.title}</h3>
+              <span className="text-[10px] font-bold text-gray-300 whitespace-nowrap ml-2">{item.platform}</span>
+            </div>
+            <p className="text-xs text-slate-400 font-medium mt-2 line-clamp-2 leading-relaxed">
+              <span className="text-indigo-500 mr-1">✨ AI Summary:</span>
+              {item.summary}
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="mt-4 flex items-center gap-2 overflow-x-auto no-scrollbar">
+        {item.tags.map((tag, i) => (
+          <span key={i} className="px-3 py-1 bg-gray-50 text-[10px] font-bold text-slate-500 rounded-full border border-gray-100">
+            #{tag}
+          </span>
+        ))}
+        <div className="ml-auto flex items-center text-[10px] text-gray-300 font-bold">
+           {item.date}
+        </div>
+      </div>
+    </div>
+  );
+
+  const ShareExtensionOverlay = () => {
+    if (simulationState === 'idle') return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center">
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" />
+        <div className="relative w-full max-w-md bg-white rounded-t-[40px] p-6 pb-10 shadow-2xl animate-slide-up">
+          <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-8" />
+          <div className="flex flex-col items-center text-center">
+            
+            <div className="mb-6 relative">
+              <div className={`w-20 h-20 ${currentSimulatedItem.coverColor} rounded-3xl flex items-center justify-center text-4xl shadow-lg transition-all duration-500 ${simulationState === 'success' ? 'scale-110' : 'animate-pulse'}`}>
+                {simulationState === 'success' ? '✅' : currentSimulatedItem.coverEmoji}
+              </div>
+              {simulationState === 'processing' && (
+                <div className="absolute -right-2 -top-2 bg-black text-white p-2 rounded-full shadow-lg animate-bounce">
+                  <Sparkles size={16} />
+                </div>
+              )}
+            </div>
+
+            <h3 className="text-lg font-black text-slate-800 px-4 line-clamp-1 mb-2">
+              {currentSimulatedItem.title}
+            </h3>
+
+            <div className="h-8 flex items-center justify-center">
+              {simulationState === 'analyzing' && (
+                <span className="text-sm font-bold text-gray-400 animate-pulse flex items-center gap-2">
+                  <Zap size={14} /> Resolving URL...
+                </span>
+              )}
+              {simulationState === 'processing' && (
+                <span className="text-sm font-bold text-indigo-500 flex items-center gap-2">
+                  <Sparkles size={14} /> AI Summarizing...
+                </span>
+              )}
+              {simulationState === 'success' && (
+                <span className="text-sm font-bold text-green-500 flex items-center gap-2">
+                  Saved to Inbox
+                </span>
+              )}
+            </div>
+
+            {simulationState === 'processing' || simulationState === 'success' ? (
+              <div className="mt-6 flex flex-wrap justify-center gap-2 animate-fade-in">
+                 {currentSimulatedItem.ai_tags.map(tag => (
+                   <span key={tag} className="px-3 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-lg">
+                     #{tag}
+                   </span>
+                 ))}
+              </div>
+            ) : (
+               <div className="mt-6 h-8" /> 
+            )}
+
+            <div className="mt-8 w-full flex gap-3">
+               <button className="flex-1 bg-gray-100 text-gray-400 font-bold py-4 rounded-2xl text-sm">Cancel</button>
+               <button className="flex-1 bg-black text-white font-bold py-4 rounded-2xl text-sm shadow-xl shadow-black/20 flex items-center justify-center gap-2">
+                 {simulationState === 'success' ? 'View in STASH' : 'Processing...'}
+               </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // --- 详情页 + Gemini Integration ---
+  const DetailView = () => {
+    if (!showDetail) return null;
+
+    const [chatInput, setChatInput] = useState("");
+    const [chatHistory, setChatHistory] = useState([
+      { role: "ai", text: `I've analyzed "${showDetail.title}". Ask me anything about it!` }
+    ]);
+    const [isThinking, setIsThinking] = useState(false);
+    const [isRefining, setIsRefining] = useState(false);
+    const [refinedSummary, setRefinedSummary] = useState(showDetail.summary);
+    const chatEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(() => {
+      scrollToBottom();
+    }, [chatHistory]);
+
+    // Feature 1: Refine Summary with Gemini
+    const handleRefineSummary = async () => {
+      setIsRefining(true);
+      const prompt = `Based on the title "${showDetail.title}" and current summary "${showDetail.summary}", generate a more insightful, bullet-pointed list of "Key Takeaways" (max 3 points). Keep it concise and actionable. No intro text.`;
+      
+      const result = await callGemini(prompt);
+      setRefinedSummary(result);
+      setIsRefining(false);
+    };
+
+    // Feature 2: Chat with Content
+    const handleSendMessage = async () => {
+      if (!chatInput.trim()) return;
+
+      const userMsg = chatInput;
+      setChatInput("");
+      setChatHistory(prev => [...prev, { role: "user", text: userMsg }]);
+      setIsThinking(true);
+
+      const prompt = `
+        Context: The user has saved a bookmark in their 'Stash' app.
+        Title: "${showDetail.title}"
+        Current Summary: "${showDetail.summary}"
+        Tags: ${showDetail.tags.join(", ")}
+        
+        User Question: "${userMsg}"
+        
+        Task: Answer the user's question based on the context of this bookmark. Be helpful, concise, and friendly. Assume the persona of a smart knowledge assistant.
+      `;
+
+      const aiResponse = await callGemini(prompt);
+      setChatHistory(prev => [...prev, { role: "ai", text: aiResponse }]);
+      setIsThinking(false);
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 bg-gray-50 overflow-y-auto">
+        <div className="max-w-md mx-auto min-h-screen bg-white shadow-2xl relative flex flex-col">
+          
+          {/* 导航栏 */}
+          <div className="sticky top-0 bg-white/80 backdrop-blur-md px-6 py-4 flex justify-between items-center z-10 border-b border-gray-50">
+            <button onClick={() => setShowDetail(null)} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors">
+              <X size={20} className="text-slate-800" />
+            </button>
+            <div className="flex gap-3">
+              <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-50">
+                <Bookmark size={20} className="text-slate-800" />
+              </button>
+            </div>
+          </div>
+
+          <div className="px-6 pt-6 pb-20 flex-1 overflow-y-auto">
+            {/* 封面 */}
+            <div className={`w-full aspect-video ${showDetail.coverColor} rounded-[32px] mb-6 flex items-center justify-center text-6xl shadow-inner`}>
+              {showDetail.coverEmoji}
+            </div>
+
+            {/* 标题 */}
+            <h1 className="text-2xl font-black text-slate-900 leading-tight mb-2">
+              {showDetail.title}
+            </h1>
+            <div className="flex items-center gap-2 mb-6">
+              <div className="px-3 py-1 bg-black text-white text-[10px] font-bold rounded-full">
+                {showDetail.platform}
+              </div>
+              <span className="text-xs font-bold text-gray-300">{showDetail.date}</span>
+            </div>
+
+            {/* AI Summary Section with Magic Refine */}
+            <div className="bg-indigo-50/50 border border-indigo-100 p-6 rounded-3xl mb-8 relative group">
+              <div className="flex items-center justify-between mb-3 text-indigo-600">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={18} fill="currentColor" className="opacity-20" />
+                  <span className="text-xs font-extrabold tracking-wider uppercase">AI Insight</span>
+                </div>
+                <button 
+                  onClick={handleRefineSummary}
+                  disabled={isRefining}
+                  className="p-2 bg-white rounded-full shadow-sm hover:scale-110 active:scale-95 transition-all disabled:opacity-50"
+                  title="Deep Analyze with Gemini"
+                >
+                  <RefreshCw size={14} className={`text-indigo-600 ${isRefining ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+              <div className="text-sm font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">
+                {refinedSummary}
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="mb-8 border-b border-gray-100 pb-8">
+              <div className="flex flex-wrap gap-2">
+                {showDetail.tags.map(tag => (
+                  <span key={tag} className="px-4 py-2 bg-gray-100 text-xs font-bold text-slate-600 rounded-xl">
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Chat with Gemini Section */}
+            <div className="mb-8">
+               <div className="flex items-center gap-2 mb-4">
+                 <Bot size={20} className="text-slate-800" />
+                 <h3 className="text-lg font-black text-slate-900">Ask Gemini</h3>
+               </div>
+               
+               <div className="bg-gray-50 rounded-3xl p-4 min-h-[200px] flex flex-col gap-3">
+                 {chatHistory.map((msg, idx) => (
+                   <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                     <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm font-medium ${
+                       msg.role === 'user' 
+                         ? 'bg-slate-900 text-white rounded-tr-sm' 
+                         : 'bg-white text-slate-700 shadow-sm rounded-tl-sm'
+                     }`}>
+                       {msg.text}
+                     </div>
+                   </div>
+                 ))}
+                 {isThinking && (
+                   <div className="flex justify-start">
+                     <div className="bg-white px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm flex gap-1">
+                       <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                       <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75" />
+                       <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
+                     </div>
+                   </div>
+                 )}
+                 <div ref={chatEndRef} />
+               </div>
+
+               {/* Input Area */}
+               <div className="mt-3 flex gap-2">
+                 <input 
+                   value={chatInput}
+                   onChange={(e) => setChatInput(e.target.value)}
+                   onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                   placeholder="Ask about this bookmark..."
+                   className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                 />
+                 <button 
+                   onClick={handleSendMessage}
+                   disabled={!chatInput.trim() || isThinking}
+                   className="bg-indigo-500 text-white p-3 rounded-xl hover:bg-indigo-600 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
+                 >
+                   <Send size={20} />
+                 </button>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex justify-center font-sans antialiased text-slate-800 selection:bg-indigo-100">
+      <div className="w-full max-w-md bg-white min-h-screen shadow-2xl relative overflow-hidden">
+        
+        <Header />
+
+        <div className="px-6 pb-32 animate-fade-in-up">
+          <div className="flex gap-3 mb-8 overflow-x-auto no-scrollbar">
+             <div className="pl-1 flex gap-3">
+              <div className="bg-black text-white px-5 py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-black/10 whitespace-nowrap">
+                <span className="text-xl">🔥</span>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold opacity-60">STREAK</span>
+                  <span className="text-xs font-bold">12 Days</span>
+                </div>
+              </div>
+              <div className="bg-gray-50 border border-gray-100 text-slate-600 px-5 py-3 rounded-2xl flex items-center gap-2 whitespace-nowrap">
+                <span className="text-xl">🧠</span>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold opacity-40">ASSETS</span>
+                  <span className="text-xs font-bold">{items.length} Items</span>
+                </div>
+              </div>
+             </div>
+          </div>
+
+          <div className="flex justify-between items-end mb-4">
+            <h2 className="text-lg font-black text-slate-900">
+              {activeTab === 'inbox' ? 'Recent Loot' : 'Smart Themes'}
+            </h2>
+            <button className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-3 py-1 rounded-full">
+              Clean Up
+            </button>
+          </div>
+
+          {activeTab === 'inbox' ? (
+            <div className="space-y-4">
+              {items.map(item => <ItemCard key={item.id} item={item} />)}
+            </div>
+          ) : (
+             <div className="grid grid-cols-2 gap-4">
+               <div className="bg-orange-50 p-4 rounded-3xl border border-orange-100 aspect-square flex flex-col justify-between cursor-pointer hover:bg-orange-100 transition-colors">
+                  <FolderHeart className="text-orange-400" size={32} />
+                  <div>
+                    <h3 className="font-bold text-slate-800">Design</h3>
+                    <p className="text-[10px] font-bold text-orange-400">12 items</p>
+                  </div>
+               </div>
+               <div className="bg-blue-50 p-4 rounded-3xl border border-blue-100 aspect-square flex flex-col justify-between cursor-pointer hover:bg-blue-100 transition-colors">
+                  <Zap className="text-blue-400" size={32} />
+                  <div>
+                    <h3 className="font-bold text-slate-800">AI / Tech</h3>
+                    <p className="text-[10px] font-bold text-blue-400">8 items</p>
+                  </div>
+               </div>
+               <div className="bg-gray-50 p-4 rounded-3xl border border-gray-100 aspect-square flex flex-col justify-between items-center justify-center cursor-pointer">
+                  <Plus className="text-gray-300" size={32} />
+               </div>
+             </div>
+          )}
+        </div>
+
+        <TabBar />
+        <ShareExtensionOverlay />
+        <DetailView />
+
+        <div className="fixed bottom-24 right-6 z-40 max-w-[400px] mx-auto w-full flex justify-end pointer-events-none">
+           <button 
+             onClick={simulateExternalShare}
+             disabled={simulationState !== 'idle'}
+             className="pointer-events-auto bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl font-bold text-xs flex items-center gap-2 hover:scale-105 active:scale-95 transition-all border-2 border-white/20"
+           >
+             <Share size={16} />
+             <span>Simulate "Share from XHS"</span>
+           </button>
+        </div>
+
+      </div>
+    </div>
+  );
+}

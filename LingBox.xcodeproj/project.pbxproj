@@ -6,6 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		439A66B12F0BC53400C9DEF7 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 439A66A72F0BC53400C9DEF7 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		439A66C12F0CAD8C00C9DEF7 /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 439A66C02F0CAD8C00C9DEF7 /* RealmSwift */; };
+		439A66C82F0CADB200C9DEF7 /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 439A66C72F0CADB200C9DEF7 /* RealmSwift */; };
+		439A66CC2F0CAF5800C9DEF7 /* RealmSwift in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 439A66C02F0CAD8C00C9DEF7 /* RealmSwift */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		439A66862F0BB81400C9DEF7 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,17 +28,83 @@
 			remoteGlobalIDString = 439A66772F0BB81300C9DEF7;
 			remoteInfo = LingBox;
 		};
+		439A66AF2F0BC53400C9DEF7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 439A66702F0BB81300C9DEF7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 439A66A62F0BC53400C9DEF7;
+			remoteInfo = ShareExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		439A66B62F0BC53400C9DEF7 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				439A66B12F0BC53400C9DEF7 /* ShareExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		439A66C62F0CADAE00C9DEF7 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		439A66CB2F0CAF5700C9DEF7 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				439A66CC2F0CAF5800C9DEF7 /* RealmSwift in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		439A66782F0BB81400C9DEF7 /* LingBox.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LingBox.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		439A66852F0BB81400C9DEF7 /* LingBoxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LingBoxTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		439A668F2F0BB81500C9DEF7 /* LingBoxUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LingBoxUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		439A66A72F0BC53400C9DEF7 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		439A66B22F0BC53400C9DEF7 /* Exceptions for "ShareExtension" folder in "ShareExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 439A66A62F0BC53400C9DEF7 /* ShareExtension */;
+		};
+		439A66CE2F0CB06500C9DEF7 /* Exceptions for "LingBox" folder in "ShareExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Shared/AssetItem.swift,
+				Shared/OpenAIClient.swift,
+				Shared/Secrets.swift,
+				Shared/StorageManager.swift,
+			);
+			target = 439A66A62F0BC53400C9DEF7 /* ShareExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		439A667A2F0BB81400C9DEF7 /* LingBox */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				439A66CE2F0CB06500C9DEF7 /* Exceptions for "LingBox" folder in "ShareExtension" target */,
+			);
 			path = LingBox;
 			sourceTree = "<group>";
 		};
@@ -45,6 +118,14 @@
 			path = LingBoxUITests;
 			sourceTree = "<group>";
 		};
+		439A66A82F0BC53400C9DEF7 /* ShareExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				439A66B22F0BC53400C9DEF7 /* Exceptions for "ShareExtension" folder in "ShareExtension" target */,
+			);
+			path = ShareExtension;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,6 +133,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				439A66C12F0CAD8C00C9DEF7 /* RealmSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -69,6 +151,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		439A66A42F0BC53400C9DEF7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				439A66C82F0CADB200C9DEF7 /* RealmSwift in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -78,6 +168,8 @@
 				439A667A2F0BB81400C9DEF7 /* LingBox */,
 				439A66882F0BB81400C9DEF7 /* LingBoxTests */,
 				439A66922F0BB81500C9DEF7 /* LingBoxUITests */,
+				439A66A82F0BC53400C9DEF7 /* ShareExtension */,
+				439A66C22F0CADAE00C9DEF7 /* Frameworks */,
 				439A66792F0BB81400C9DEF7 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -88,8 +180,16 @@
 				439A66782F0BB81400C9DEF7 /* LingBox.app */,
 				439A66852F0BB81400C9DEF7 /* LingBoxTests.xctest */,
 				439A668F2F0BB81500C9DEF7 /* LingBoxUITests.xctest */,
+				439A66A72F0BC53400C9DEF7 /* ShareExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		439A66C22F0CADAE00C9DEF7 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -102,16 +202,20 @@
 				439A66742F0BB81300C9DEF7 /* Sources */,
 				439A66752F0BB81300C9DEF7 /* Frameworks */,
 				439A66762F0BB81300C9DEF7 /* Resources */,
+				439A66B62F0BC53400C9DEF7 /* Embed Foundation Extensions */,
+				439A66CB2F0CAF5700C9DEF7 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				439A66B02F0BC53400C9DEF7 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				439A667A2F0BB81400C9DEF7 /* LingBox */,
 			);
 			name = LingBox;
 			packageProductDependencies = (
+				439A66C02F0CAD8C00C9DEF7 /* RealmSwift */,
 			);
 			productName = LingBox;
 			productReference = 439A66782F0BB81400C9DEF7 /* LingBox.app */;
@@ -163,6 +267,30 @@
 			productReference = 439A668F2F0BB81500C9DEF7 /* LingBoxUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		439A66A62F0BC53400C9DEF7 /* ShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 439A66B32F0BC53400C9DEF7 /* Build configuration list for PBXNativeTarget "ShareExtension" */;
+			buildPhases = (
+				439A66A32F0BC53400C9DEF7 /* Sources */,
+				439A66A42F0BC53400C9DEF7 /* Frameworks */,
+				439A66A52F0BC53400C9DEF7 /* Resources */,
+				439A66C62F0CADAE00C9DEF7 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				439A66A82F0BC53400C9DEF7 /* ShareExtension */,
+			);
+			name = ShareExtension;
+			packageProductDependencies = (
+				439A66C72F0CADB200C9DEF7 /* RealmSwift */,
+			);
+			productName = ShareExtension;
+			productReference = 439A66A72F0BC53400C9DEF7 /* ShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -184,6 +312,9 @@
 						CreatedOnToolsVersion = 26.1.1;
 						TestTargetID = 439A66772F0BB81300C9DEF7;
 					};
+					439A66A62F0BC53400C9DEF7 = {
+						CreatedOnToolsVersion = 26.1.1;
+					};
 				};
 			};
 			buildConfigurationList = 439A66732F0BB81300C9DEF7 /* Build configuration list for PBXProject "LingBox" */;
@@ -195,6 +326,9 @@
 			);
 			mainGroup = 439A666F2F0BB81300C9DEF7;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				439A66BD2F0CAD8C00C9DEF7 /* XCRemoteSwiftPackageReference "realm-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 439A66792F0BB81400C9DEF7 /* Products */;
 			projectDirPath = "";
@@ -203,6 +337,7 @@
 				439A66772F0BB81300C9DEF7 /* LingBox */,
 				439A66842F0BB81400C9DEF7 /* LingBoxTests */,
 				439A668E2F0BB81500C9DEF7 /* LingBoxUITests */,
+				439A66A62F0BC53400C9DEF7 /* ShareExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -223,6 +358,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		439A668D2F0BB81500C9DEF7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		439A66A52F0BC53400C9DEF7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -253,6 +395,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		439A66A32F0BC53400C9DEF7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -265,6 +414,11 @@
 			isa = PBXTargetDependency;
 			target = 439A66772F0BB81300C9DEF7 /* LingBox */;
 			targetProxy = 439A66902F0BB81500C9DEF7 /* PBXContainerItemProxy */;
+		};
+		439A66B02F0BC53400C9DEF7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 439A66A62F0BC53400C9DEF7 /* ShareExtension */;
+			targetProxy = 439A66AF2F0BC53400C9DEF7 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -390,6 +544,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LingBox/LingBox.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 28D3MM78W3;
@@ -434,6 +589,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LingBox/LingBox.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 28D3MM78W3;
@@ -575,6 +731,69 @@
 			};
 			name = Release;
 		};
+		439A66B42F0BC53400C9DEF7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 28D3MM78W3;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShareExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = chaosky.LingBox.ShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		439A66B52F0BC53400C9DEF7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 28D3MM78W3;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShareExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = chaosky.LingBox.ShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -614,7 +833,40 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		439A66B32F0BC53400C9DEF7 /* Build configuration list for PBXNativeTarget "ShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				439A66B42F0BC53400C9DEF7 /* Debug */,
+				439A66B52F0BC53400C9DEF7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		439A66BD2F0CAD8C00C9DEF7 /* XCRemoteSwiftPackageReference "realm-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/realm/realm-swift.git";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		439A66C02F0CAD8C00C9DEF7 /* RealmSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 439A66BD2F0CAD8C00C9DEF7 /* XCRemoteSwiftPackageReference "realm-swift" */;
+			productName = RealmSwift;
+		};
+		439A66C72F0CADB200C9DEF7 /* RealmSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 439A66BD2F0CAD8C00C9DEF7 /* XCRemoteSwiftPackageReference "realm-swift" */;
+			productName = RealmSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 439A66702F0BB81300C9DEF7 /* Project object */;
 }

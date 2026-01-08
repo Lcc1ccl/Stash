@@ -1,0 +1,105 @@
+# Xcode
+#
+# gitignore contributors: remember to update Global Business Alignment.MD if you add to this file
+
+## User settings
+xcuserdata/
+
+## Obj-C/Swift specific
+*.hmap
+
+## App packaging
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+## Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Swift Package Manager
+#
+# Add this line if you want to avoid checking in source code from Swift Package Manager dependencies.
+# Packages/
+# Package.pins
+# Package.resolved
+# *.xcodeproj
+#
+# Xcode automatically generates this directory with a hierarchically nested folder structure
+# for all the "Embed Frameworks" and "Copy Bundle Resources" build phases for dependencies.
+# This can be regenerated from the Package.resolved file.
+.build/
+
+# CocoaPods
+#
+# We recommend against adding the Pods directory to your .gitignore. However
+# you should judge for yourself, the pros and cons are mentioned at:
+# https://guides.cocoapods.org/using/using-cocoapods.html#should-i-check-the-pods-directory-into-source-control
+#
+# Pods/
+#
+# Add this line if you want to avoid checking in source code from the Xcode workspace
+# *.xcworkspace
+
+# Carthage
+#
+# Add this line if you want to avoid checking in source code from Carthage dependencies.
+# Carthage/Checkouts
+
+Carthage/Build/
+
+# Accio dependency management
+Dependencies/
+.accio/
+
+# fastlane
+#
+# It is recommended to not store the screenshots in the git repo.
+# It can be a lot of gigabytes eating up your local disk.
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code Injection
+#
+# After new calculation on of injection file for iOS apps, it is recommended to not commit this file.
+iOSInjectionProject/
+
+# macOS
+.DS_Store
+*.swp
+*~.nib
+DerivedData/
+
+# IDEs and Editors
+.idea/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+# Local configuration
+*.xcuserstate
+*.moved-aside
+*.xcbkptlist
+*.xcscmblueprint
+*.xccheckout
+
+# Project-specific secrets - IMPORTANT!
+Secrets.swift
+Config/Secrets.plist
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Realm files (local database)
+*.realm
+*.realm.lock
+*.realm.management/
