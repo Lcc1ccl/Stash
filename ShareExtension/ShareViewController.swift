@@ -14,7 +14,7 @@ class ShareViewController: SLComposeServiceViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.title = "Save to LingBox"
+        self.title = "Save to Stash"
         extractAttachments()
     }
 
@@ -174,7 +174,7 @@ class ShareViewController: SLComposeServiceViewController {
     private func saveImageToAppGroup(_ imageData: Data) -> String? {
         // Get App Group container directory
         guard let containerURL = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: "group.com.superdaddy.LingBox"
+            forSecurityApplicationGroupIdentifier: "group.com.superdaddy.Stash"
         ) else {
             return nil
         }

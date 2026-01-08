@@ -2,7 +2,7 @@
 
 ## Why
 
-当用户从 Safari 或其他 App 分享链接到 LingBox 时，iOS 系统会传递缩略图作为附件。但当前的 Share Extension 代码只从 HTML 中提取 `og:image`，没有处理系统传递的图片附件，导致缩略图丢失。
+当用户从 Safari 或其他 App 分享链接到 Stash 时，iOS 系统会传递缩略图作为附件。但当前的 Share Extension 代码只从 HTML 中提取 `og:image`，没有处理系统传递的图片附件，导致缩略图丢失。
 
 ## What Changes
 

@@ -1,7 +1,7 @@
 # Proposal: Enhance UI and AI Features
 
 ## Goal
-Transform LingBox into a premium, visually engaging "Stash" application by adopting the "reference-demo" aesthetic and integrating AI-powered features (simulated for now).
+Transform Stash into a premium, visually engaging "Stash" application by adopting the "reference-demo" aesthetic and integrating AI-powered features (simulated for now).
 
 ## Motivation
 The current UI is basic. The "reference-demo" provides a modern, high-quality design (cards, rich colors, emojis) and compelling features (AI summaries, chat) that align with the goal of a personal "digital loot box".

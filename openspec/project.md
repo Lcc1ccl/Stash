@@ -1,10 +1,10 @@
 # Project Context
 
 ## Purpose
-LingBox is a local-first iOS application designed to capture, organize, and review web links. It serves as a personal "read it later" or link collection tool. 
+Stash is a local-first iOS application designed to capture, organize, and review web links. It serves as a personal "read it later" or link collection tool. 
 
 Key features:
-- **Share Extension**: Allows users to quickly save URLs from Safari or other apps directly into LingBox.
+- **Share Extension**: Allows users to quickly save URLs from Safari or other apps directly into Stash.
 - **Main App**: A SwiftUI-based interface to view, manage, and review stored links.
 - **Privacy-Focused**: All data is stored locally using Realm.
 - **Weekly Recap**: Features a notification system to remind users to review their saved links.
@@ -14,7 +14,7 @@ Key features:
 - **UI Framework**: SwiftUI
 - **Persistence**: Realm (RealmSwift) local database
 - **Platform**: iOS (iPhone/iPad)
-- **Data Sharing**: App Groups (`group.com.chaosky.LingBox`) to share the Realm database between the main app and the Share Extension.
+- **Data Sharing**: App Groups (`group.com.chaosky.Stash`) to share the Realm database between the main app and the Share Extension.
 
 ## Project Conventions
 
@@ -29,8 +29,8 @@ Key features:
 - **Data Model**: `Realm` objects (`AssetItem`) inherit from `Object`.
 
 ### Testing Strategy
-- **Unit Tests**: Standard XCTest framework (`LingBoxTests`).
-- **UI Tests**: XCUITest (`LingBoxUITests`).
+- **Unit Tests**: Standard XCTest framework (`StashTests`).
+- **UI Tests**: XCUITest (`StashUITests`).
 
 ### Git Workflow
 - Standard feature branching.
