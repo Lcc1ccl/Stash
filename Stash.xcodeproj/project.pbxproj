@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		439739282F0FAFFA006462EF /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		439739292F0FAFFA006462EF /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		439739702F0FB7E3006462EF /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = SUPABASE0001 /* Supabase */; };
 		439A66B12F0BC53400C9DEF7 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 439A66A72F0BC53400C9DEF7 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		439A66C12F0CAD8C00C9DEF7 /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 439A66C02F0CAD8C00C9DEF7 /* RealmSwift */; };
 		439A66C82F0CADB200C9DEF7 /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 439A66C72F0CADB200C9DEF7 /* RealmSwift */; };
@@ -79,9 +82,25 @@
 		439A66A72F0BC53400C9DEF7 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		431230062F10B289005B95BF /* Exceptions for "Stash" folder in "ShareExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Shared/AssetItem.swift,
+				Shared/OpenAIClient.swift,
+				Shared/Secrets.swift,
+				Shared/StorageManager.swift,
+			);
+			target = 439A66A62F0BC53400C9DEF7 /* ShareExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		439A667A2F0BB81400C9DEF7 /* Stash */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				431230062F10B289005B95BF /* Exceptions for "Stash" folder in "ShareExtension" target */,
+			);
 			path = Stash;
 			sourceTree = "<group>";
 		};
@@ -107,6 +126,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				439739702F0FB7E3006462EF /* Supabase in Frameworks */,
+				439739292F0FAFFA006462EF /* (null) in Frameworks */,
+				439739282F0FAFFA006462EF /* (null) in Frameworks */,
 				439A66C12F0CAD8C00C9DEF7 /* RealmSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -190,6 +212,7 @@
 			name = Stash;
 			packageProductDependencies = (
 				439A66C02F0CAD8C00C9DEF7 /* RealmSwift */,
+				SUPABASE0001 /* Supabase */,
 			);
 			productName = Stash;
 			productReference = 439A66782F0BB81400C9DEF7 /* Stash.app */;
@@ -302,6 +325,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				439A66BD2F0CAD8C00C9DEF7 /* XCRemoteSwiftPackageReference "realm-swift" */,
+				SUPABASE0000 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 439A66792F0BB81400C9DEF7 /* Products */;
@@ -827,6 +851,14 @@
 				minimumVersion = 20.0.3;
 			};
 		};
+		SUPABASE0000 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase-community/supabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -839,6 +871,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 439A66BD2F0CAD8C00C9DEF7 /* XCRemoteSwiftPackageReference "realm-swift" */;
 			productName = RealmSwift;
+		};
+		SUPABASE0001 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = SUPABASE0000 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

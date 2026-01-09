@@ -174,7 +174,7 @@ class ShareViewController: SLComposeServiceViewController {
     private func saveImageToAppGroup(_ imageData: Data) -> String? {
         // Get App Group container directory
         guard let containerURL = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: "group.com.superdaddy.Stash"
+            forSecurityApplicationGroupIdentifier: "group.com.chaosky.Stash"
         ) else {
             return nil
         }

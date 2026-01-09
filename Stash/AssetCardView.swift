@@ -72,10 +72,18 @@ struct AssetCardView: View {
                     HStack(alignment: .top, spacing: 4) {
                         Text("✨")
                             .font(.system(size: 12))
-                        Text("AI Summary: \(item.summary ?? "正在生成摘要中...")")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(Color(uiColor: .slate400))
-                            .lineLimit(2)
+                        
+                        VStack(alignment: .leading, spacing: 0) {
+                            (Text("AI Summary: ")
+                                .foregroundColor(.indigo)
+                             + Text(item.summary ?? "正在生成摘要中...")
+                                .foregroundColor(Color(uiColor: .slate400)))
+                                .font(.system(size: 13, weight: .medium))
+                                .lineLimit(3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.trailing, 28) // Avoid overlap with source icon
                     }
                 }
             }

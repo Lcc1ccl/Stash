@@ -20,6 +20,10 @@ struct ContentView: View {
     @State private var isSearching = false // Search Bar Animation State
     @FocusState private var isSearchFieldFocused: Bool
     
+    // List Tab States (Recent Loot / All Loots)
+    @State private var activeListTab = "recent" // "recent" or "all"
+    @State private var shuffledAssets: [AssetItem] = []
+    
     // Grid Columns for Themes tab
     let columns = [
         GridItem(.flexible(), spacing: 16),
@@ -44,26 +48,56 @@ struct ContentView: View {
             .map { $0.key }
     }
     
-    // MARK: - Filtered Assets (Search Implementation)
-    private var filteredAssets: [AssetItem] {
-        let unreviewedAssets = assets.filter { !$0.isReviewed }
+    // MARK: - Filtered Assets for Recent Loot (by time, most recent)
+    private var recentAssets: [AssetItem] {
+        var result = Array(assets)
         
-        // 1. Tag Filter (from Tab Bar)
-        var result = unreviewedAssets
+        // Apply tag filter if selected
         if let tag = selectedTag {
             result = result.filter { $0.tags.contains(tag) }
         }
         
-        guard !searchText.isEmpty else {
-            return Array(result)
+        // Apply search filter
+        if !searchText.isEmpty {
+            result = applySearchFilter(to: result)
         }
         
-        // 2. Search Text Parsing (Tags + Keywords)
+        return result
+    }
+    
+    // MARK: - All Assets (for All Loots tab)
+    private var allAssets: [AssetItem] {
+        var result = Array(assets)
+        
+        // Apply tag filter if selected
+        if let tag = selectedTag {
+            result = result.filter { $0.tags.contains(tag) }
+        }
+        
+        // Apply search filter
+        if !searchText.isEmpty {
+            result = applySearchFilter(to: result)
+        }
+        
+        return result
+    }
+    
+    // MARK: - Current Display Assets (based on active list tab)
+    private var displayAssets: [AssetItem] {
+        if activeListTab == "recent" {
+            return recentAssets
+        } else {
+            return shuffledAssets.isEmpty ? allAssets : shuffledAssets
+        }
+    }
+    
+    // MARK: - Search Filter Helper
+    private func applySearchFilter(to items: [AssetItem]) -> [AssetItem] {
         let components = searchText.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ")
         let searchTags = components.filter { $0.hasPrefix("#") }.map { String($0.dropFirst()).lowercased() }
         let keywords = components.filter { !$0.hasPrefix("#") }.map { String($0).lowercased() }
         
-        return Array(result).filter { item in
+        return items.filter { item in
             // Match ALL parsed tags
             let matchesTags = searchTags.allSatisfy { tagQuery in
                 item.tags.contains { $0.lowercased().contains(tagQuery) }
@@ -86,7 +120,7 @@ struct ContentView: View {
                 
                 VStack(spacing: 0) {
                     // Custom Header
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 0) {
                         HStack {
                             VStack(alignment: .leading) {
                                 Text("STASH")
@@ -98,6 +132,31 @@ struct ContentView: View {
                                     .tracking(2)
                             }
                             Spacer()
+                            
+                            // Search Button
+                            Button(action: {
+                                if isSearching {
+                                    dismissSearch()
+                                } else {
+                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                        isSearching = true
+                                    }
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        isSearchFieldFocused = true
+                                    }
+                                }
+                            }) {
+                                Circle()
+                                    .fill(isSearching ? Color.indigo.opacity(0.1) : Color(uiColor: .gray100))
+                                    .frame(width: 40, height: 40)
+                                    .overlay(
+                                        Image(systemName: "magnifyingglass")
+                                            .font(.title3)
+                                            .foregroundColor(isSearching ? .indigo : Color(uiColor: .slate500))
+                                    )
+                            }
+                            
+                            // Settings Button
                             Button(action: { showingSettings = true }) {
                                 Circle()
                                     .fill(Color(uiColor: .gray100))
@@ -110,29 +169,94 @@ struct ContentView: View {
                             }
                         }
                         
-                        // Search Bar (Refactored)
-                        SearchBarView(
-                            text: $searchText,
-                            isSearching: $isSearching,
-                            isFocused: $isSearchFieldFocused,
-                            suggestedTags: suggestedTags,
-                            onTagSelected: { tag in
-                                searchText = "#\(tag) " // Append tag with space and keep focus
-                            },
-                            onCancel: {
-                                searchText = ""
-                                isSearching = false
-                                isSearchFieldFocused = false
+                        // Expandable Search Panel
+                        if isSearching {
+                            VStack(spacing: 0) {
+                                HStack {
+                                    Image(systemName: "magnifyingglass")
+                                        .foregroundColor(.gray)
+                                    
+                                    TextField("Search... (type # for tags)", text: $searchText)
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(.primary)
+                                        .autocapitalization(.none)
+                                        .focused($isSearchFieldFocused)
+                                    
+                                    if !searchText.isEmpty {
+                                        Button(action: { searchText = "" }) {
+                                            Image(systemName: "xmark.circle.fill")
+                                                .foregroundColor(.gray)
+                                        }
+                                    }
+                                    
+                                    Button("Cancel") {
+                                        searchText = ""
+                                        isSearchFieldFocused = false
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                            withAnimation(.spring()) {
+                                                isSearching = false
+                                            }
+                                        }
+                                    }
+                                    .foregroundColor(.blue)
+                                }
+                                .padding()
+                                .background(Color(uiColor: .gray50))
+                                .cornerRadius(16)
+                                
+                                // Recommended Tags Panel
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Recommended Tags")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.gray)
+                                        .padding(.top, 16)
+                                    
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 8) {
+                                            ForEach(suggestedTags, id: \.self) { tag in
+                                                Button(action: { searchText = "#\(tag) " }) {
+                                                    Text("#\(tag)")
+                                                        .font(.system(size: 12, weight: .semibold))
+                                                        .foregroundColor(Color(uiColor: .slate500))
+                                                        .padding(.horizontal, 12)
+                                                        .padding(.vertical, 6)
+                                                        .background(Color(uiColor: .gray50))
+                                                        .cornerRadius(20)
+                                                        .overlay(
+                                                            RoundedRectangle(cornerRadius: 20)
+                                                                .stroke(Color(uiColor: .gray100), lineWidth: 1)
+                                                        )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(.bottom, 12)
                             }
-                        )
-                        .zIndex(10) // Ensure it floats above content when expanded
+                            .padding(8)
+                            .background(Color.white)
+                            .cornerRadius(24)
+                            .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
+                            .padding(.top, 8)
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .scale(scale: 0.95, anchor: .topTrailing)),
+                                removal: .opacity.combined(with: .scale(scale: 0.95, anchor: .topTrailing))
+                            ))
+                            .onTapGesture {
+                                // Prevent tap from propagating to parent
+                            }
+                        }
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
-                    .padding(.bottom, 24)
+                    .padding(.bottom, isSearching ? 16 : 24)
                     .background(Color.white)
+                    .zIndex(10)
                     .onTapGesture {
-                        dismissSearch()
+                        // Tap on header area dismisses search
+                        if isSearching {
+                            dismissSearch()
+                        }
                     }
                     
                     // Main Content - Switch based on activeTab
@@ -216,16 +340,30 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Clean Up Action
-    private func cleanUpItems() {
+    // MARK: - Shuffle Action (for All Loots tab) - One-time action
+    private func shuffleAssets() {
+        shuffledAssets = allAssets.shuffled()
+    }
+    
+    // MARK: - Mark as Read Action
+    private func markAsRead(_ item: AssetItem) {
         do {
             try realm.write {
-                for item in filteredAssets {
-                    item.isReviewed = true
-                }
+                item.isReviewed = true
             }
         } catch {
-            print("Error cleaning up items: \(error)")
+            print("Error marking item as read: \(error)")
+        }
+    }
+    
+    // MARK: - Delete Item Action
+    private func deleteItem(_ item: AssetItem) {
+        do {
+            try realm.write {
+                realm.delete(item)
+            }
+        } catch {
+            print("Error deleting item: \(error)")
         }
     }
     
@@ -233,18 +371,18 @@ struct ContentView: View {
     private var inboxContent: some View {
         ScrollView {
             VStack(spacing: 24) {
-                // Stats Row - Now tappable
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        Button(action: { showingSettings = true }) {
-                            StatPill(icon: "🔥", label: "STREAK", value: "12 Days", color: .black, textColor: .white)
-                        }
-                        Button(action: { /* Show all assets */ }) {
-                            StatPill(icon: "🧠", label: "ASSETS", value: "\(assets.count) Items", color: Color(uiColor: .gray50), textColor: Color(uiColor: .slate500))
-                        }
+                // Stats Row - Full Width 50/50
+                HStack(spacing: 12) {
+                    Button(action: { /* Streak stats - future feature */ }) {
+                        StatPill(icon: "🔥", label: "STREAK", value: "12 Days", color: .black, textColor: .white)
+                            .frame(maxWidth: .infinity)
                     }
-                    .padding(.horizontal, 24)
+                    Button(action: { /* Show all assets */ }) {
+                        StatPill(icon: "🧠", label: "ASSETS", value: "\(assets.count) Items", color: Color(uiColor: .gray50), textColor: Color(uiColor: .slate500))
+                            .frame(maxWidth: .infinity)
+                    }
                 }
+                .padding(.horizontal, 24)
                 .padding(.top, 8)
                 
                 // Tag Filter Bar
@@ -284,36 +422,101 @@ struct ContentView: View {
                 }
                 .padding(.vertical, 4)
                 
-                // Section Header with Clean Up action
+                // Section Header with Tab Switch
                 HStack {
-                    Text("Recent Loot")
+                    // Tab: Recent Loot
+                    Button(action: {
+                        activeListTab = "recent"
+                        shuffledAssets = [] // Reset shuffle when switching tabs
+                    }) {
+                        Text("Recent Loot")
+                            .font(.system(size: 18, weight: .black))
+                            .foregroundColor(activeListTab == "recent" ? Color(uiColor: .slate900) : Color(uiColor: .gray300))
+                    }
+                    
+                    Text("/")
                         .font(.system(size: 18, weight: .black))
-                        .foregroundColor(Color(uiColor: .slate900))
+                        .foregroundColor(Color(uiColor: .gray200))
+                        .padding(.horizontal, 4)
+                    
+                    // Tab: All Loots
+                    Button(action: {
+                        activeListTab = "all"
+                        shuffledAssets = [] // Reset shuffle when switching tabs
+                    }) {
+                        Text("All Loots")
+                            .font(.system(size: 18, weight: .black))
+                            .foregroundColor(activeListTab == "all" ? Color(uiColor: .slate900) : Color(uiColor: .gray300))
+                    }
                     
                     if !searchText.isEmpty {
-                        Text("(\(filteredAssets.count) results)")
+                        Text("(\(displayAssets.count) results)")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.gray)
                     }
                     
                     Spacer()
                     
-                    if !filteredAssets.isEmpty {
-                        Button(action: cleanUpItems) {
-                            Text("Clean Up")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.indigo)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.indigo.opacity(0.1))
-                                .cornerRadius(12)
+                    // Right side buttons based on active tab
+                    if activeListTab == "all" {
+                        HStack(spacing: 8) {
+                            // Shuffle Button - One-time action, no highlight state
+                            Button(action: shuffleAssets) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.indigo)
+                                    .padding(8)
+                                    .background(Color.indigo.opacity(0.1))
+                                    .cornerRadius(8)
+                            }
+                            
+                            // View Menu Button
+                            Menu {
+                                Section("视图") {
+                                    Button(action: {}) {
+                                        Label("卡片", systemImage: "rectangle.grid.1x2")
+                                    }
+                                    Button(action: {}) {
+                                        Label("列表", systemImage: "list.bullet")
+                                    }
+                                    Button(action: {}) {
+                                        Label("平铺", systemImage: "rectangle.grid.2x2")
+                                    }
+                                }
+                                Section("排序") {
+                                    Button(action: {}) {
+                                        Label("最新添加", systemImage: "arrow.down")
+                                    }
+                                    Button(action: {}) {
+                                        Label("最早添加", systemImage: "arrow.up")
+                                    }
+                                }
+                                Section("分类依据") {
+                                    Button(action: {}) {
+                                        Label("来源平台", systemImage: "globe")
+                                    }
+                                    Button(action: {}) {
+                                        Label("添加日期", systemImage: "calendar")
+                                    }
+                                    Button(action: {}) {
+                                        Label("已读状态", systemImage: "checkmark.circle")
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "slider.horizontal.3")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.indigo)
+                                    .padding(8)
+                                    .background(Color.indigo.opacity(0.1))
+                                    .cornerRadius(8)
+                            }
                         }
                     }
                 }
                 .padding(.horizontal, 24)
                 
-                // Asset List
-                if filteredAssets.isEmpty {
+                // Asset List with Swipe Actions
+                if displayAssets.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: searchText.isEmpty ? "tray" : "magnifyingglass")
                             .font(.system(size: 60))
@@ -331,11 +534,8 @@ struct ContentView: View {
                     .padding(.top, 60)
                 } else {
                     LazyVStack(spacing: 16) {
-                        ForEach(filteredAssets, id: \.id) { item in
-                            NavigationLink(destination: AssetDetailView(item: item).navigationBarHidden(true)) {
-                                AssetCardView(item: item)
-                            }
-                            .buttonStyle(PlainButtonStyle())
+                        ForEach(displayAssets, id: \.id) { item in
+                            SwipeableAssetCard(item: item, onMarkRead: markAsRead, onDelete: deleteItem)
                         }
                     }
                 }
@@ -443,9 +643,11 @@ struct StatPill: View {
                 Text(value)
                     .font(.system(size: 12, weight: .bold))
             }
+            Spacer()
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
         .background(color)
         .foregroundColor(textColor)
         .cornerRadius(16)
@@ -490,101 +692,91 @@ struct RoundedCorner: Shape {
 }
 
 
-struct SearchBarView: View {
-    @Binding var text: String
-    @Binding var isSearching: Bool
-    var isFocused: FocusState<Bool>.Binding
-    var suggestedTags: [String]
-    var onTagSelected: (String) -> Void
-    var onCancel: () -> Void
+// MARK: - Swipeable Asset Card with Actions
+struct SwipeableAssetCard: View {
+    @ObservedRealmObject var item: AssetItem
+    var onMarkRead: (AssetItem) -> Void
+    var onDelete: (AssetItem) -> Void
+    
+    @State private var offset: CGFloat = 0
+    @State private var showingActions = false
+    
+    private let actionWidth: CGFloat = 160
     
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
+        ZStack(alignment: .trailing) {
+            // Action Buttons (behind the card)
+            HStack(spacing: 0) {
+                Spacer()
                 
-                TextField("Search... (type # for tags)", text: $text)
-                    .font(.system(size: 14, weight: .bold)) // Low contrast dealt with by gray color
-                    .foregroundColor(.primary)
-                    .autocapitalization(.none)
-                    .focused(isFocused)
-                    .onChange(of: isFocused.wrappedValue) { _, focused in
-                        if focused {
-                            withAnimation(.spring()) {
-                                isSearching = true
-                            }
-                        }
+                // Mark as Read Button
+                Button(action: {
+                    withAnimation(.spring()) {
+                        offset = 0
+                        showingActions = false
                     }
-                
-                if !text.isEmpty {
-                    Button(action: { text = "" }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.gray)
+                    onMarkRead(item)
+                }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: item.isReviewed ? "checkmark.circle.fill" : "checkmark.circle")
+                            .font(.system(size: 20))
+                        Text("已读")
+                            .font(.system(size: 12, weight: .bold))
                     }
+                    .foregroundColor(.white)
+                    .frame(width: 80, height: 100)
+                    .background(Color.green)
                 }
                 
-                if isSearching {
-                    Button("Cancel") {
-                        // Clear text and focus first
-                        text = ""
-                        isFocused.wrappedValue = false
-                        
-                        // Delay state change slightly to allow keyboard dismissal to start cleanly
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            withAnimation(.spring()) {
-                                isSearching = false
-                                onCancel()
-                            }
-                        }
+                // Delete Button
+                Button(action: {
+                    withAnimation(.spring()) {
+                        offset = 0
+                        showingActions = false
                     }
-                    .foregroundColor(.blue)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                    onDelete(item)
+                }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 20))
+                        Text("删除")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(width: 80, height: 100)
+                    .background(Color.red)
                 }
             }
-            .padding()
-            .background(Color(uiColor: .gray50))
-            .cornerRadius(16)
-            .shadow(color: isSearching ? .black.opacity(0.1) : .clear, radius: 10, x: 0, y: 5)
+            .cornerRadius(24)
+            .padding(.horizontal, 16)
             
-            // Recommended Tags Panel
-            if isSearching {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Recommended Tags")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.gray)
-                        .padding(.top, 16)
-                    
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(suggestedTags, id: \.self) { tag in
-                                Button(action: { onTagSelected(tag) }) {
-                                    Text("#\(tag)")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(Color(uiColor: .slate500))
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(Color(uiColor: .gray50))
-                                        .cornerRadius(20)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 20)
-                                                .stroke(Color(uiColor: .gray100), lineWidth: 1)
-                                        )
-                                }
+            // Main Card
+            NavigationLink(destination: AssetDetailView(item: item).navigationBarHidden(true)) {
+                AssetCardView(item: item)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .offset(x: offset)
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        if value.translation.width < 0 {
+                            offset = max(value.translation.width, -actionWidth)
+                        } else if showingActions {
+                            offset = min(0, -actionWidth + value.translation.width)
+                        }
+                    }
+                    .onEnded { value in
+                        withAnimation(.spring()) {
+                            if value.translation.width < -50 {
+                                offset = -actionWidth
+                                showingActions = true
+                            } else {
+                                offset = 0
+                                showingActions = false
                             }
                         }
                     }
-                }
-                .transition(.opacity.combined(with: .move(edge: .top)))
-                .padding(.bottom, 12)
-            }
-        }
-        .padding(isSearching ? 8 : 0) // Expand padding slightly when active
-        .background(isSearching ? Color.white : Color.clear)
-        .cornerRadius(isSearching ? 24 : 0)
-        .shadow(color: isSearching ? .black.opacity(0.15) : .clear, radius: 20, x: 0, y: 10)
-        .onTapGesture {
-            // Swallow taps on the search bar itself prevents triggering the parent's dismiss handler
+            )
         }
     }
 }

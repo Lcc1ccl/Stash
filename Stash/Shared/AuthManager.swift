@@ -1,124 +1,128 @@
 import Foundation
 import Combine
-import RealmSwift
-import CryptoKit
+import Supabase
 
-/// 用户认证管理器
+/// 用户认证管理器 - Supabase 版本
+@MainActor
 class AuthManager: ObservableObject {
     static let shared = AuthManager()
     
-    @Published var currentUser: UserProfile?
+    @Published var currentUser: User?
     @Published var isLoggedIn: Bool = false
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String?
     
-    private var realm: Realm {
-        try! Realm()
-    }
+    private var authStateTask: Task<Void, Never>?
     
     private init() {
-        loadCurrentUser()
+        setupAuthStateListener()
     }
     
-    // MARK: - Session Management
+    deinit {
+        authStateTask?.cancel()
+    }
     
-    private func loadCurrentUser() {
-        // 加载最后登录的用户
-        if let user = realm.objects(UserProfile.self).first {
-            currentUser = user
-            isLoggedIn = true
+    // MARK: - Auth State Listener
+    
+    private func setupAuthStateListener() {
+        authStateTask = Task {
+            for await (event, session) in supabase.auth.authStateChanges {
+                await MainActor.run {
+                    switch event {
+                    case .initialSession, .signedIn:
+                        self.currentUser = session?.user
+                        self.isLoggedIn = session?.user != nil
+                        if let userId = session?.user.id {
+                            Task {
+                                await CreditsManager.shared.loadUserCredits(userId: userId.uuidString)
+                            }
+                        }
+                    case .signedOut:
+                        self.currentUser = nil
+                        self.isLoggedIn = false
+                    default:
+                        break
+                    }
+                }
+            }
         }
     }
     
     // MARK: - Email Authentication
     
-    func register(email: String, password: String) -> Result<UserProfile, AuthError> {
-        let normalizedEmail = email.lowercased().trimmingCharacters(in: .whitespaces)
-        
-        // 检查邮箱是否已存在
-        if realm.objects(UserProfile.self).filter("email == %@", normalizedEmail).first != nil {
-            return .failure(.emailAlreadyExists)
-        }
-        
-        // 验证邮箱格式
-        guard isValidEmail(normalizedEmail) else {
-            return .failure(.invalidEmail)
-        }
-        
-        // 验证密码强度
-        guard password.count >= 6 else {
-            return .failure(.weakPassword)
-        }
-        
-        let passwordHash = hashPassword(password)
-        let user = UserProfile(email: normalizedEmail, passwordHash: passwordHash)
+    func register(email: String, password: String) async -> Result<User, AuthError> {
+        isLoading = true
+        errorMessage = nil
         
         do {
-            try realm.write {
-                realm.add(user)
-            }
-            currentUser = user
-            isLoggedIn = true
+            let response = try await supabase.auth.signUp(email: email, password: password)
+            let user = response.user
             
-            // 初始化订阅信息
-            CreditsManager.shared.initializeForNewUser()
-            
+            // 初始化积分
+            await CreditsManager.shared.initializeCredits(userId: user.id.uuidString)
+            isLoading = false
             return .success(user)
         } catch {
-            return .failure(.databaseError)
+            isLoading = false
+            let authError = mapSupabaseError(error)
+            errorMessage = authError.localizedDescription
+            return .failure(authError)
         }
     }
     
-    func login(email: String, password: String) -> Result<UserProfile, AuthError> {
-        let normalizedEmail = email.lowercased().trimmingCharacters(in: .whitespaces)
-        let passwordHash = hashPassword(password)
+    func login(email: String, password: String) async -> Result<User, AuthError> {
+        isLoading = true
+        errorMessage = nil
         
-        guard let user = realm.objects(UserProfile.self)
-            .filter("email == %@ AND passwordHash == %@", normalizedEmail, passwordHash)
-            .first else {
-            return .failure(.invalidCredentials)
+        do {
+            let session = try await supabase.auth.signIn(email: email, password: password)
+            isLoading = false
+            return .success(session.user)
+        } catch {
+            isLoading = false
+            let authError = mapSupabaseError(error)
+            errorMessage = authError.localizedDescription
+            return .failure(authError)
         }
-        
-        currentUser = user
-        isLoggedIn = true
-        return .success(user)
     }
     
     func logout() {
-        currentUser = nil
-        isLoggedIn = false
-    }
-    
-    // MARK: - Third-party Login (Placeholder)
-    
-    func linkAppleAccount(userId: String) {
-        guard let user = currentUser else { return }
-        try? realm.write {
-            if !user.linkedProviders.contains("apple") {
-                user.linkedProviders.append("apple")
+        Task {
+            do {
+                try await supabase.auth.signOut()
+            } catch {
+                errorMessage = "登出失败: \(error.localizedDescription)"
             }
         }
     }
     
-    func linkGoogleAccount(userId: String) {
-        guard let user = currentUser else { return }
-        try? realm.write {
-            if !user.linkedProviders.contains("google") {
-                user.linkedProviders.append("google")
-            }
+    func resetPassword(email: String) async -> Result<Void, AuthError> {
+        do {
+            try await supabase.auth.resetPasswordForEmail(email)
+            return .success(())
+        } catch {
+            return .failure(mapSupabaseError(error))
         }
     }
     
-    // MARK: - Helpers
+    // MARK: - Error Mapping
     
-    private func hashPassword(_ password: String) -> String {
-        let data = Data(password.utf8)
-        let hash = SHA256.hash(data: data)
-        return hash.compactMap { String(format: "%02x", $0) }.joined()
-    }
-    
-    private func isValidEmail(_ email: String) -> Bool {
-        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
-        let predicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
-        return predicate.evaluate(with: email)
+    private func mapSupabaseError(_ error: Error) -> AuthError {
+        let message = error.localizedDescription.lowercased()
+        
+        if message.contains("already registered") || message.contains("already exists") {
+            return .emailAlreadyExists
+        } else if message.contains("invalid email") {
+            return .invalidEmail
+        } else if message.contains("weak password") || message.contains("password") {
+            return .weakPassword
+        } else if message.contains("invalid") || message.contains("credentials") {
+            return .invalidCredentials
+        } else if message.contains("network") || message.contains("connection") {
+            return .networkError
+        }
+        
+        return .unknown(error.localizedDescription)
     }
 }
 
@@ -129,7 +133,8 @@ enum AuthError: LocalizedError {
     case invalidEmail
     case weakPassword
     case invalidCredentials
-    case databaseError
+    case networkError
+    case unknown(String)
     
     var errorDescription: String? {
         switch self {
@@ -137,7 +142,8 @@ enum AuthError: LocalizedError {
         case .invalidEmail: return "邮箱格式无效"
         case .weakPassword: return "密码至少需要 6 位"
         case .invalidCredentials: return "邮箱或密码错误"
-        case .databaseError: return "数据库错误，请重试"
+        case .networkError: return "网络连接失败，请检查网络"
+        case .unknown(let msg): return msg
         }
     }
 }

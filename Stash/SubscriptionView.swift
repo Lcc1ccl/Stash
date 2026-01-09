@@ -3,8 +3,10 @@ import SwiftUI
 struct SubscriptionView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var creditsManager = CreditsManager.shared
+    @ObservedObject private var authManager = AuthManager.shared
     
     @State private var selectedPlan: SubscriptionPlan = .free
+    @State private var isUpgrading = false
     
     var body: some View {
         NavigationView {
@@ -20,9 +22,26 @@ struct SubscriptionView: View {
                     }
                     .padding(.top, 24)
                     
+                    // Login prompt if not logged in
+                    if !authManager.isLoggedIn {
+                        VStack(spacing: 12) {
+                            Image(systemName: "person.crop.circle.badge.exclamationmark")
+                                .font(.system(size: 40))
+                                .foregroundColor(.orange)
+                            Text("请先登录以使用订阅功能")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                    }
+                    
                     // Plan Cards
                     VStack(spacing: 16) {
-                        ForEach([SubscriptionPlan.free, .plus, .pro], id: \.self) { plan in
+                        ForEach(SubscriptionPlan.allCases, id: \.self) { plan in
                             PlanCard(
                                 plan: plan,
                                 isSelected: selectedPlan == plan,
@@ -39,8 +58,8 @@ struct SubscriptionView: View {
                         Text("功能对比")
                             .font(.headline)
                         
-                        FeatureRow(feature: "每日 AI 积分", free: "10", plus: "50", pro: "200")
-                        FeatureRow(feature: "AI 摘要生成", free: "✓", plus: "✓", pro: "✓")
+                        FeatureRow(feature: "每日积分", free: "5", plus: "30", pro: "100")
+                        FeatureRow(feature: "AI 摘要", free: "✓", plus: "✓", pro: "✓")
                         FeatureRow(feature: "AI 聊天", free: "有限", plus: "✓", pro: "✓")
                         FeatureRow(feature: "优先支持", free: "—", plus: "✓", pro: "✓")
                     }
@@ -50,23 +69,30 @@ struct SubscriptionView: View {
                     .padding(.horizontal)
                     
                     // Subscribe Button
-                    if selectedPlan != creditsManager.currentPlan {
+                    if selectedPlan != creditsManager.currentPlan && authManager.isLoggedIn {
                         Button {
-                            creditsManager.upgradePlan(to: selectedPlan)
-                            dismiss()
+                            Task {
+                                await upgradePlan()
+                            }
                         } label: {
-                            Text(selectedPlan == .free ? "降级到 Free" : "升级到 \(selectedPlan.displayName)")
-                                .fontWeight(.semibold)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(selectedPlan == .free ? Color.gray : Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(12)
+                            if isUpgrading {
+                                ProgressView()
+                                    .tint(.white)
+                            } else {
+                                Text(selectedPlan == .free ? "降级到 Free" : "升级到 \(selectedPlan.displayName)")
+                                    .fontWeight(.semibold)
+                            }
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(selectedPlan == .free ? Color.gray : Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
                         .padding(.horizontal)
+                        .disabled(isUpgrading)
                     }
                     
-                    Text("* 当前为模拟订阅，不涉及真实支付")
+                    Text("* 当前为模拟订阅，正式支付功能即将上线")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.bottom, 32)
@@ -84,6 +110,13 @@ struct SubscriptionView: View {
                 selectedPlan = creditsManager.currentPlan
             }
         }
+    }
+    
+    private func upgradePlan() async {
+        isUpgrading = true
+        await creditsManager.upgradePlan(to: selectedPlan)
+        isUpgrading = false
+        dismiss()
     }
 }
 

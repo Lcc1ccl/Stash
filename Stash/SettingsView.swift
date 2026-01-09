@@ -1,5 +1,6 @@
 import SwiftUI
 import RealmSwift
+import Supabase
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -29,15 +30,15 @@ struct SettingsView: View {
                                 .fill(Color.blue.opacity(0.2))
                                 .frame(width: 56, height: 56)
                                 .overlay(
-                                    Text(String(user.displayName.prefix(1)).uppercased())
+                                    Text(String((user.email ?? "U").prefix(1)).uppercased())
                                         .font(.title2.bold())
                                         .foregroundColor(.blue)
                                 )
                             
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(user.displayName)
+                                Text(user.email?.components(separatedBy: "@").first ?? "用户")
                                     .font(.headline)
-                                Text(user.email)
+                                Text(user.email ?? "")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -87,7 +88,7 @@ struct SettingsView: View {
                                         .cornerRadius(4)
                                 }
                             }
-                            Text("\(creditsManager.creditsRemaining) / \(creditsManager.currentPlan.dailyCredits) 积分")
+                            Text(String(format: "%.1f / %d 积分", creditsManager.creditsRemaining, creditsManager.currentPlan.dailyCredits))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -214,13 +215,34 @@ struct SettingsView: View {
 struct AIProviderSettingsView: View {
     @Environment(\.realm) var realm
     @ObservedResults(AIProviderConfig.self) var aiConfigs
+    @ObservedObject private var creditsManager = CreditsManager.shared
     
     @State private var selectedProvider: AIProvider = .builtin
     @State private var apiKey: String = ""
     @State private var customEndpoint: String = ""
     
+    // Alert states
+    @State private var showingUnlockConfirm = false
+    @State private var showingInsufficientCredits = false
+    @State private var isSaving = false
+    
     private var config: AIProviderConfig? {
         aiConfigs.first
+    }
+    
+    /// 是否需要解锁（选择了自定义提供方且尚未解锁）
+    private var needsUnlock: Bool {
+        selectedProvider.requiresApiKey && !creditsManager.customProviderUnlocked
+    }
+    
+    /// 是否有未保存的更改
+    private var hasChanges: Bool {
+        guard let config = config else {
+            return selectedProvider != .builtin || !apiKey.isEmpty || !customEndpoint.isEmpty
+        }
+        return config.provider != selectedProvider ||
+               config.customApiKey != apiKey ||
+               config.customEndpoint != customEndpoint
     }
     
     var body: some View {
@@ -229,7 +251,6 @@ struct AIProviderSettingsView: View {
                 ForEach(AIProvider.allCases, id: \.self) { provider in
                     Button {
                         selectedProvider = provider
-                        saveConfig()
                     } label: {
                         HStack {
                             VStack(alignment: .leading) {
@@ -255,32 +276,75 @@ struct AIProviderSettingsView: View {
                 }
             } header: {
                 Text("选择提供方")
+            } footer: {
+                if needsUnlock {
+                    Text("⚡ 首次启用自定义提供方需消耗 10 积分（一次性）")
+                        .foregroundColor(.orange)
+                }
             }
             
             if selectedProvider.requiresApiKey {
                 Section {
                     SecureField("API Key", text: $apiKey)
                         .textContentType(.password)
-                        .onChange(of: apiKey) { _, _ in
-                            saveConfig()
-                        }
                     
                     TextField("自定义端点 (可选)", text: $customEndpoint)
                         .keyboardType(.URL)
                         .autocapitalization(.none)
-                        .onChange(of: customEndpoint) { _, _ in
-                            saveConfig()
-                        }
                 } header: {
                     Text("API 配置")
                 } footer: {
-                    Text("使用自定义 API Key 不消耗订阅积分")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("使用自定义 API Key 不消耗订阅积分")
+                        if creditsManager.customProviderUnlocked {
+                            Label("已解锁自定义提供方", systemImage: "checkmark.seal.fill")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                        }
+                    }
+                }
+            }
+            
+            // Save Button Section
+            if hasChanges {
+                Section {
+                    Button {
+                        handleSave()
+                    } label: {
+                        HStack {
+                            Spacer()
+                            if isSaving {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle())
+                            } else {
+                                Text("保存设置")
+                                    .fontWeight(.semibold)
+                            }
+                            Spacer()
+                        }
+                    }
+                    .disabled(isSaving)
                 }
             }
         }
         .navigationTitle("AI 提供方")
         .onAppear {
             loadConfig()
+        }
+        .alert("解锁自定义提供方", isPresented: $showingUnlockConfirm) {
+            Button("取消", role: .cancel) { }
+            Button("确认解锁") {
+                Task {
+                    await performUnlockAndSave()
+                }
+            }
+        } message: {
+            Text("首次使用自定义 AI 提供方需消耗 10 积分。\n\n当前积分：\(String(format: "%.1f", creditsManager.creditsRemaining))\n\n解锁后可自由切换，不再重复扣费。")
+        }
+        .alert("积分不足", isPresented: $showingInsufficientCredits) {
+            Button("知道了", role: .cancel) { }
+        } message: {
+            Text("启用自定义提供方需要 10 积分。\n当前积分：\(String(format: "%.1f", creditsManager.creditsRemaining))\n\n请升级订阅或等待每日积分刷新。")
         }
     }
     
@@ -289,6 +353,33 @@ struct AIProviderSettingsView: View {
             selectedProvider = config.provider
             apiKey = config.customApiKey
             customEndpoint = config.customEndpoint
+        }
+    }
+    
+    private func handleSave() {
+        // 如果选择了自定义提供方且尚未解锁
+        if needsUnlock {
+            // 检查积分是否足够
+            if creditsManager.creditsRemaining >= AICreditsCost.customProviderUnlock {
+                showingUnlockConfirm = true
+            } else {
+                showingInsufficientCredits = true
+            }
+        } else {
+            // 已解锁或选择默认提供方，直接保存
+            saveConfig()
+        }
+    }
+    
+    private func performUnlockAndSave() async {
+        isSaving = true
+        let success = await creditsManager.unlockCustomProvider()
+        isSaving = false
+        
+        if success {
+            saveConfig()
+        } else {
+            showingInsufficientCredits = true
         }
     }
     

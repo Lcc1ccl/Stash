@@ -145,19 +145,37 @@ struct AssetDetailView: View {
                             }
                         }
                         
-                        // Open in Safari Button
-                        Button(action: openInSafari) {
-                            HStack {
-                                Image(systemName: "safari")
-                                    .font(.system(size: 20))
-                                Text("Open in Safari")
-                                    .font(.system(size: 16, weight: .bold))
+                        // Action Buttons Row
+                        HStack(spacing: 12) {
+                            // Open in Safari Button
+                            Button(action: openInSafari) {
+                                HStack {
+                                    Image(systemName: "safari")
+                                        .font(.system(size: 20))
+                                    Text("Open in Safari")
+                                        .font(.system(size: 16, weight: .bold))
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(Color.blue)
+                                .cornerRadius(16)
                             }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(Color.blue)
-                            .cornerRadius(16)
+                            
+                            // Mark as Read Button
+                            Button(action: markAsRead) {
+                                VStack(spacing: 4) {
+                                    Image(systemName: item.isReviewed ? "checkmark.circle.fill" : "checkmark.circle")
+                                        .font(.system(size: 24))
+                                    Text(item.isReviewed ? "已读" : "标记已读")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                                .foregroundColor(item.isReviewed ? .white : .green)
+                                .frame(width: 70)
+                                .padding(.vertical, 12)
+                                .background(item.isReviewed ? Color.green : Color.green.opacity(0.1))
+                                .cornerRadius(16)
+                            }
                         }
                         
                         Divider().padding(.vertical, 8)
@@ -245,6 +263,17 @@ struct AssetDetailView: View {
     private func openInSafari() {
         guard let url = URL(string: item.url) else { return }
         UIApplication.shared.open(url)
+    }
+    
+    private func markAsRead() {
+        guard let realm = item.realm else { return }
+        do {
+            try realm.write {
+                item.isReviewed = true
+            }
+        } catch {
+            print("Error marking item as read: \(error)")
+        }
     }
     
     private func sendMessage() {

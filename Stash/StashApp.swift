@@ -18,12 +18,10 @@ struct StashApp: SwiftUI.App {
             fatalError("Shared App Group container not found. Check Entitlements.")
         }
         let realmURL = container.appendingPathComponent("default.realm")
-        let config = Realm.Configuration(fileURL: realmURL, schemaVersion: 3) // Bump schema version for new models
+        let config = Realm.Configuration(fileURL: realmURL, schemaVersion: 5)
         Realm.Configuration.defaultConfiguration = config
         
-        // Initialize managers and refresh daily credits
-        _ = AuthManager.shared
-        CreditsManager.shared.refreshCreditsIfNeeded()
+        // Supabase is initialized via global client in SupabaseConfig.swift
     }
     
     var body: some Scene {

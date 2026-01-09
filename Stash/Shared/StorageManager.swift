@@ -12,7 +12,7 @@ class StorageManager {
             fatalError("Shared App Group container not found. Check Entitlements.")
         }
         let realmURL = container.appendingPathComponent("default.realm")
-        let config = Realm.Configuration(fileURL: realmURL, schemaVersion: 2)
+        let config = Realm.Configuration(fileURL: realmURL, schemaVersion: 5)
         
         do {
             return try Realm(configuration: config)

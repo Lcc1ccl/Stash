@@ -1,4 +1,5 @@
 import SwiftUI
+import AuthenticationServices
 
 struct LoginView: View {
     @Environment(\.dismiss) private var dismiss
@@ -9,7 +10,6 @@ struct LoginView: View {
     @State private var password = ""
     @State private var confirmPassword = ""
     @State private var errorMessage: String?
-    @State private var isLoading = false
     
     var body: some View {
         NavigationView {
@@ -23,7 +23,7 @@ struct LoginView: View {
                     Text(isRegistering ? "创建账号" : "登录")
                         .font(.title.bold())
                     
-                    Text("使用邮箱登录以同步您的设置")
+                    Text("使用邮箱登录以同步您的设置和积分")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -54,7 +54,7 @@ struct LoginView: View {
                             .cornerRadius(12)
                     }
                     
-                    if let error = errorMessage {
+                    if let error = errorMessage ?? authManager.errorMessage {
                         Text(error)
                             .font(.caption)
                             .foregroundColor(.red)
@@ -65,9 +65,11 @@ struct LoginView: View {
                 
                 // Submit Button
                 Button {
-                    submit()
+                    Task {
+                        await submit()
+                    }
                 } label: {
-                    if isLoading {
+                    if authManager.isLoading {
                         ProgressView()
                             .tint(.white)
                     } else {
@@ -81,7 +83,7 @@ struct LoginView: View {
                 .foregroundColor(.white)
                 .cornerRadius(12)
                 .padding(.horizontal)
-                .disabled(isLoading)
+                .disabled(authManager.isLoading)
                 
                 // Toggle Mode
                 Button {
@@ -94,6 +96,19 @@ struct LoginView: View {
                         .font(.subheadline)
                 }
                 
+                // Forgot Password
+                if !isRegistering {
+                    Button {
+                        Task {
+                            await resetPassword()
+                        }
+                    } label: {
+                        Text("忘记密码？")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
                 Spacer()
                 
                 // Third-party Login
@@ -102,34 +117,32 @@ struct LoginView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    HStack(spacing: 16) {
-                        Button {
-                            // Apple Sign In placeholder
-                        } label: {
-                            HStack {
-                                Image(systemName: "apple.logo")
-                                Text("Apple")
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.black)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
+                    // Apple Sign In Button
+                    SignInWithAppleButton(.signIn) { request in
+                        request.requestedScopes = [.email, .fullName]
+                    } onCompletion: { result in
+                        handleAppleSignIn(result)
+                    }
+                    .signInWithAppleButtonStyle(.black)
+                    .frame(height: 50)
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                    
+                    // Google Sign In Button
+                    Button {
+                        handleGoogleSignIn()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "g.circle.fill")
+                                .font(.title2)
+                            Text("使用 Google 登录")
+                                .fontWeight(.medium)
                         }
-                        
-                        Button {
-                            // Google Sign In placeholder
-                        } label: {
-                            HStack {
-                                Image(systemName: "g.circle.fill")
-                                Text("Google")
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(.systemGray5))
-                            .foregroundColor(.primary)
-                            .cornerRadius(12)
-                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(Color(.systemGray5))
+                        .foregroundColor(.primary)
+                        .cornerRadius(12)
                     }
                     .padding(.horizontal)
                 }
@@ -146,18 +159,16 @@ struct LoginView: View {
         }
     }
     
-    private func submit() {
+    private func submit() async {
         errorMessage = nil
-        isLoading = true
         
         if isRegistering {
             guard password == confirmPassword else {
                 errorMessage = "两次输入的密码不一致"
-                isLoading = false
                 return
             }
             
-            let result = authManager.register(email: email, password: password)
+            let result = await authManager.register(email: email, password: password)
             switch result {
             case .success:
                 dismiss()
@@ -165,7 +176,7 @@ struct LoginView: View {
                 errorMessage = error.localizedDescription
             }
         } else {
-            let result = authManager.login(email: email, password: password)
+            let result = await authManager.login(email: email, password: password)
             switch result {
             case .success:
                 dismiss()
@@ -173,8 +184,41 @@ struct LoginView: View {
                 errorMessage = error.localizedDescription
             }
         }
+    }
+    
+    private func resetPassword() async {
+        guard !email.isEmpty else {
+            errorMessage = "请先输入邮箱"
+            return
+        }
         
-        isLoading = false
+        let result = await authManager.resetPassword(email: email)
+        switch result {
+        case .success:
+            errorMessage = "密码重置邮件已发送"
+        case .failure(let error):
+            errorMessage = error.localizedDescription
+        }
+    }
+    
+    private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
+        // Apple Sign In implementation - requires additional setup
+        // This is a placeholder for the UI
+        switch result {
+        case .success(let auth):
+            if let _ = auth.credential as? ASAuthorizationAppleIDCredential {
+                // TODO: Integrate with Firebase Auth using Apple credential
+                print("Apple Sign In success - integration pending")
+            }
+        case .failure(let error):
+            errorMessage = "Apple 登录失败: \(error.localizedDescription)"
+        }
+    }
+    
+    private func handleGoogleSignIn() {
+        // Google Sign In implementation - requires GoogleSignIn SDK
+        // This is a placeholder for the UI
+        errorMessage = "Google 登录功能即将上线"
     }
 }
 
