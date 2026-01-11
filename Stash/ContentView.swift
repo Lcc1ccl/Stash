@@ -113,8 +113,9 @@ struct ContentView: View {
         }
     }
 
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack(alignment: .bottom) {
                 Color(uiColor: .gray100).edgesIgnoringSafeArea(.all)
                 
@@ -700,8 +701,11 @@ struct SwipeableAssetCard: View {
     
     @State private var offset: CGFloat = 0
     @State private var showingActions = false
+    @State private var isDragging = false
+    @State private var navigateToDetail = false
     
     private let actionWidth: CGFloat = 160
+    private let swipeThreshold: CGFloat = 20 // 水平滑动阈值
     
     var body: some View {
         ZStack(alignment: .trailing) {
@@ -750,33 +754,74 @@ struct SwipeableAssetCard: View {
             .cornerRadius(24)
             .padding(.horizontal, 16)
             
-            // Main Card
-            NavigationLink(destination: AssetDetailView(item: item).navigationBarHidden(true)) {
-                AssetCardView(item: item)
-            }
-            .buttonStyle(PlainButtonStyle())
-            .offset(x: offset)
-            .gesture(
-                DragGesture()
-                    .onChanged { value in
-                        if value.translation.width < 0 {
-                            offset = max(value.translation.width, -actionWidth)
-                        } else if showingActions {
-                            offset = min(0, -actionWidth + value.translation.width)
+            // Main Card with manual navigation control
+            AssetCardView(item: item)
+                .offset(x: offset)
+                .contentShape(Rectangle()) // 确保整个区域可点击
+                .onTapGesture {
+                    // 只有在非拖动状态且菜单未展开时才触发导航
+                    if !isDragging && !showingActions && offset == 0 {
+                        navigateToDetail = true
+                    } else if showingActions {
+                        // 点击已展开菜单的卡片，关闭菜单
+                        withAnimation(.spring()) {
+                            offset = 0
+                            showingActions = false
                         }
                     }
-                    .onEnded { value in
-                        withAnimation(.spring()) {
-                            if value.translation.width < -50 {
-                                offset = -actionWidth
-                                showingActions = true
-                            } else {
-                                offset = 0
-                                showingActions = false
+                }
+                .navigationDestination(isPresented: $navigateToDetail) {
+                    AssetDetailView(item: item).navigationBarHidden(true)
+                }
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 20)
+                        .onChanged { value in
+                            let horizontalMovement = abs(value.translation.width)
+                            let verticalMovement = abs(value.translation.height)
+                            
+                            // 只有在明确是水平滑动意图时才处理
+                            // 条件：水平位移 > 垂直位移的2倍，且水平位移超过阈值
+                            // 一旦开始拖动，就持续跟踪直到手势结束
+                            if !isDragging {
+                                // 还没开始拖动，判断是否应该开始
+                                let shouldStartDragging = horizontalMovement > verticalMovement * 2 
+                                    && horizontalMovement > swipeThreshold
+                                    && value.translation.width < 0 // 只响应左滑
+                                
+                                if shouldStartDragging {
+                                    isDragging = true
+                                }
+                            }
+                            
+                            // 只有在拖动状态下才更新 offset
+                            if isDragging {
+                                if value.translation.width < 0 {
+                                    // 左滑
+                                    offset = max(value.translation.width, -actionWidth)
+                                } else if showingActions {
+                                    // 从已展开状态向右滑动关闭
+                                    offset = min(0, -actionWidth + value.translation.width)
+                                }
                             }
                         }
-                    }
-            )
+                        .onEnded { value in
+                            if isDragging {
+                                withAnimation(.spring()) {
+                                    if value.translation.width < -50 {
+                                        offset = -actionWidth
+                                        showingActions = true
+                                    } else {
+                                        offset = 0
+                                        showingActions = false
+                                    }
+                                }
+                            }
+                            // 延迟重置拖动状态，防止 onTapGesture 误触发
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                isDragging = false
+                            }
+                        }
+                )
         }
     }
 }
