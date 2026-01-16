@@ -8,21 +8,72 @@
 import SwiftUI
 import RealmSwift
 
+/// 启动阶段可能发生的错误
+enum StartupError: LocalizedError {
+    case appGroupUnavailable
+    case realmInitFailed(Error)
+    
+    var errorDescription: String? {
+        switch self {
+        case .appGroupUnavailable:
+            return "无法访问共享存储空间。请尝试重新安装 App。"
+        case .realmInitFailed(let error):
+            return "数据库初始化失败: \(error.localizedDescription)"
+        }
+    }
+}
+
 @main
 struct StashApp: SwiftUI.App {
     @Environment(\.scenePhase) private var scenePhase
+    @State private var startupError: StartupError?
     
     init() {
-        // Configure Realm to use the shared App Group container
+        configureRealm()
+        
+        // 预热关键单例（确保在主线程初始化）
+        _ = AuthManager.shared
+        _ = CreditsManager.shared
+    }
+    
+    /// 配置 Realm 数据库
+    private func configureRealm() {
         let appGroupId = "group.com.chaosky.Stash"
+        
         guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) else {
-            fatalError("Shared App Group container not found. Check Entitlements.")
+            print("StashApp: ERROR - Shared App Group container not found")
+            // 不调用 fatalError，而是设置错误状态
+            // 注意：在 init() 中无法直接设置 @State，需要在 body 中处理
+            // 这里先设置默认配置，让 App 能够启动
+            let fallbackURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("fallback.realm")
+            let config = Realm.Configuration(
+                fileURL: fallbackURL,
+                schemaVersion: 5,
+                migrationBlock: realmMigrationBlock
+            )
+            Realm.Configuration.defaultConfiguration = config
+            return
         }
+        
         let realmURL = container.appendingPathComponent("default.realm")
-        let config = Realm.Configuration(fileURL: realmURL, schemaVersion: 5)
+        let config = Realm.Configuration(
+            fileURL: realmURL,
+            schemaVersion: 5,
+            migrationBlock: realmMigrationBlock
+        )
         Realm.Configuration.defaultConfiguration = config
         
-        // Supabase is initialized via global client in SupabaseConfig.swift
+        print("StashApp: Realm configured at \(realmURL.path)")
+    }
+    
+    /// Realm 迁移逻辑
+    private var realmMigrationBlock: MigrationBlock {
+        return { migration, oldSchemaVersion in
+            print("StashApp: Migrating Realm from schema version \(oldSchemaVersion) to 5")
+            // 目前不需要特殊迁移逻辑
+            // Realm 会自动处理简单的 schema 变更（添加/删除属性）
+            // 如果未来需要复杂迁移，在这里添加
+        }
     }
     
     var body: some Scene {
