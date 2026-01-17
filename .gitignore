@@ -103,3 +103,11 @@ Config/Secrets.plist
 *.realm
 *.realm.lock
 *.realm.management/
+
+# AI/Agent Tools (Antigravity, etc.)
+.agent/
+openspec/
+AGENTS.md
+.gemini/
+.cursor/
+.claude/
