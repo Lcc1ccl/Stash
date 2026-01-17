@@ -92,7 +92,7 @@ DerivedData/
 *.xccheckout
 
 # Project-specific secrets - IMPORTANT!
-Secrets.swift
+# Secrets.swift - 已重构为从环境变量读取，可以提交
 Config/Secrets.plist
 
 # Environment files
