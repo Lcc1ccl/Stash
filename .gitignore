@@ -30,6 +30,7 @@ playground.xcworkspace
 # for all the "Embed Frameworks" and "Copy Bundle Resources" build phases for dependencies.
 # This can be regenerated from the Package.resolved file.
 .build/
+build/
 
 # CocoaPods
 #
