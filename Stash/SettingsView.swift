@@ -24,6 +24,18 @@ struct SettingsView: View {
             List {
                 // MARK: - Account Section
                 Section {
+                    if authManager.isOfflineMode {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label("账号服务离线", systemImage: "wifi.slash")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(.orange)
+                            Text(authManager.offlineReason ?? "云端认证服务当前不可用。")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    
                     if authManager.isLoggedIn, let user = authManager.currentUser {
                         HStack(spacing: 16) {
                             Circle()
@@ -67,6 +79,7 @@ struct SettingsView: View {
                             }
                         }
                         .accessibilityIdentifier("settings.loginButton")
+                        .disabled(authManager.isOfflineMode)
                     }
                 } header: {
                     Text("账号")

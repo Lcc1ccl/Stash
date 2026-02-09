@@ -11,6 +11,10 @@ struct LoginView: View {
     @State private var confirmPassword = ""
     @State private var errorMessage: String?
     
+    private var offlineMessage: String {
+        authManager.offlineReason ?? "云端服务当前不可用，请稍后重试。"
+    }
+    
     var body: some View {
         NavigationView {
             VStack(spacing: 24) {
@@ -29,6 +33,22 @@ struct LoginView: View {
                         .multilineTextAlignment(.center)
                 }
                 .padding(.top, 32)
+                
+                if authManager.isOfflineMode {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("当前处于离线模式", systemImage: "wifi.slash")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(.orange)
+                        Text(offlineMessage)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.12))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                }
                 
                 // Form
                 VStack(spacing: 16) {
@@ -85,8 +105,8 @@ struct LoginView: View {
                 .foregroundColor(.white)
                 .cornerRadius(12)
                 .padding(.horizontal)
-                .disabled(authManager.isLoading)
                 .accessibilityIdentifier("login.submitButton")
+                .disabled(authManager.isLoading || authManager.isOfflineMode)
                 
                 // Toggle Mode
                 Button {
@@ -110,6 +130,7 @@ struct LoginView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                    .disabled(authManager.isOfflineMode)
                 }
                 
                 Spacer()
@@ -164,6 +185,10 @@ struct LoginView: View {
     
     private func submit() async {
         errorMessage = nil
+        guard !authManager.isOfflineMode else {
+            errorMessage = offlineMessage
+            return
+        }
         
         if isRegistering {
             guard password == confirmPassword else {
@@ -190,6 +215,11 @@ struct LoginView: View {
     }
     
     private func resetPassword() async {
+        guard !authManager.isOfflineMode else {
+            errorMessage = offlineMessage
+            return
+        }
+        
         guard !email.isEmpty else {
             errorMessage = "请先输入邮箱"
             return

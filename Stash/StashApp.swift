@@ -7,86 +7,268 @@
 
 import SwiftUI
 import RealmSwift
+import Combine
 
-/// 启动阶段可能发生的错误
-enum StartupError: LocalizedError {
-    case appGroupUnavailable
-    case realmInitFailed(Error)
+enum StartupIssue: LocalizedError, Equatable {
+    case appGroupUnavailable(appGroupId: String)
+    case realmInitFailed(reason: String)
+    case fallbackUnavailable(reason: String)
     
     var errorDescription: String? {
         switch self {
-        case .appGroupUnavailable:
-            return "无法访问共享存储空间。请尝试重新安装 App。"
-        case .realmInitFailed(let error):
-            return "数据库初始化失败: \(error.localizedDescription)"
+        case .appGroupUnavailable(let appGroupId):
+            return "无法访问共享存储空间（\(appGroupId)）。"
+        case .realmInitFailed(let reason):
+            return "数据库初始化失败：\(reason)"
+        case .fallbackUnavailable(let reason):
+            return "离线数据库初始化失败：\(reason)"
         }
+    }
+    
+    var recoverySuggestion: String? {
+        switch self {
+        case .appGroupUnavailable:
+            return "请先尝试重新打开 App；若仍失败，可先进入离线模式继续使用。"
+        case .realmInitFailed:
+            return "你可以重试初始化，或进入离线模式后稍后再试。"
+        case .fallbackUnavailable:
+            return "请重试；若持续失败，请通过“报告问题”发送诊断信息。"
+        }
+    }
+    
+    var diagnostics: String {
+        switch self {
+        case .appGroupUnavailable(let appGroupId):
+            return "app_group_unavailable:\(appGroupId)"
+        case .realmInitFailed(let reason):
+            return "realm_init_failed:\(reason)"
+        case .fallbackUnavailable(let reason):
+            return "fallback_realm_failed:\(reason)"
+        }
+    }
+    
+    var canContinueOffline: Bool {
+        switch self {
+        case .appGroupUnavailable, .realmInitFailed:
+            return true
+        case .fallbackUnavailable:
+            return false
+        }
+    }
+}
+
+struct StartupBootstrapResult {
+    let configuration: Realm.Configuration
+    let issue: StartupIssue?
+}
+
+struct StartupBootstrapper {
+    let appGroupId: String
+    let schemaVersion: UInt64
+    let resolveAppGroupContainer: (String) -> URL?
+    let resolveDocumentsDirectory: () -> URL?
+    let validateRealmConfiguration: (Realm.Configuration) throws -> Void
+    
+    init(
+        appGroupId: String = StashRealmConfiguration.sharedAppGroupIdentifier,
+        schemaVersion: UInt64 = StashRealmConfiguration.defaultSchemaVersion,
+        resolveAppGroupContainer: @escaping (String) -> URL? = { appGroupId in
+            FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId)
+        },
+        resolveDocumentsDirectory: @escaping () -> URL? = {
+            FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        },
+        validateRealmConfiguration: @escaping (Realm.Configuration) throws -> Void = { config in
+            _ = try Realm(configuration: config)
+        }
+    ) {
+        self.appGroupId = appGroupId
+        self.schemaVersion = schemaVersion
+        self.resolveAppGroupContainer = resolveAppGroupContainer
+        self.resolveDocumentsDirectory = resolveDocumentsDirectory
+        self.validateRealmConfiguration = validateRealmConfiguration
+    }
+    
+    func bootstrap() -> StartupBootstrapResult {
+        let databaseURL: URL
+        var startupIssue: StartupIssue?
+        
+        if let container = resolveAppGroupContainer(appGroupId) {
+            databaseURL = container.appendingPathComponent("default.realm")
+        } else {
+            startupIssue = .appGroupUnavailable(appGroupId: appGroupId)
+            let fallbackDirectory = resolveDocumentsDirectory() ?? FileManager.default.temporaryDirectory
+            databaseURL = fallbackDirectory.appendingPathComponent("fallback.realm")
+            print("StashApp: Shared App Group container unavailable, using fallback Realm path")
+        }
+        
+        let primaryConfiguration = StashRealmConfiguration.fileConfiguration(
+            at: databaseURL,
+            schemaVersion: schemaVersion,
+            migrationLogger: { oldSchemaVersion, targetSchemaVersion in
+                print("StashApp: Migrating Realm from schema version \(oldSchemaVersion) to \(targetSchemaVersion)")
+            }
+        )
+        
+        do {
+            try validateRealmConfiguration(primaryConfiguration)
+            print("StashApp: Realm configured at \(databaseURL.path)")
+            return StartupBootstrapResult(configuration: primaryConfiguration, issue: startupIssue)
+        } catch {
+            print("StashApp: Failed to open primary Realm - \(error)")
+            let fallbackConfiguration = StashRealmConfiguration.inMemoryConfiguration(
+                identifier: "startup-fallback",
+                schemaVersion: schemaVersion,
+                migrationLogger: { oldSchemaVersion, targetSchemaVersion in
+                    print("StashApp: Migrating Realm from schema version \(oldSchemaVersion) to \(targetSchemaVersion)")
+                }
+            )
+            
+            do {
+                try validateRealmConfiguration(fallbackConfiguration)
+                return StartupBootstrapResult(
+                    configuration: fallbackConfiguration,
+                    issue: .realmInitFailed(reason: error.localizedDescription)
+                )
+            } catch {
+                print("StashApp: Failed to open fallback Realm - \(error)")
+                return StartupBootstrapResult(
+                    configuration: fallbackConfiguration,
+                    issue: .fallbackUnavailable(reason: error.localizedDescription)
+                )
+            }
+        }
+    }
+}
+
+@MainActor
+final class StartupState: ObservableObject {
+    @Published private(set) var issue: StartupIssue?
+    
+    private let bootstrapper: StartupBootstrapper
+    
+    init(bootstrapper: StartupBootstrapper? = nil) {
+        self.bootstrapper = bootstrapper ?? StartupBootstrapper()
+        reconfigure()
+    }
+    
+    func reconfigure() {
+        let result = bootstrapper.bootstrap()
+        Realm.Configuration.defaultConfiguration = result.configuration
+        issue = result.issue
+    }
+    
+    func continueOffline() {
+        guard issue?.canContinueOffline == true else {
+            return
+        }
+        issue = nil
+    }
+}
+
+private struct StartupIssueView: View {
+    @Environment(\.openURL) private var openURL
+    
+    let issue: StartupIssue
+    let onRetry: () -> Void
+    let onContinueOffline: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 36))
+                .foregroundColor(.orange)
+            
+            Text("启动遇到问题")
+                .font(.title3.weight(.bold))
+            
+            Text(issue.errorDescription ?? "未知启动错误")
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 12)
+            
+            if let suggestion = issue.recoverySuggestion {
+                Text(suggestion)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12)
+            }
+            
+            Button("重试初始化") {
+                onRetry()
+            }
+            .buttonStyle(.borderedProminent)
+            
+            if issue.canContinueOffline {
+                Button("继续离线模式") {
+                    onContinueOffline()
+                }
+                .buttonStyle(.bordered)
+            }
+            
+            Button("报告问题") {
+                if let url = reportURL {
+                    openURL(url)
+                }
+            }
+            .font(.footnote)
+        }
+        .padding(28)
+    }
+    
+    private var reportURL: URL? {
+        let formatter = ISO8601DateFormatter()
+        let body = """
+        请描述你遇到的问题：
+        
+        诊断信息：\(issue.diagnostics)
+        时间：\(formatter.string(from: Date()))
+        """
+        var components = URLComponents(string: "mailto:feedback@stash.app")
+        components?.queryItems = [
+            URLQueryItem(name: "subject", value: "[Stash] Startup issue"),
+            URLQueryItem(name: "body", value: body)
+        ]
+        return components?.url
     }
 }
 
 @main
 struct StashApp: SwiftUI.App {
     @Environment(\.scenePhase) private var scenePhase
-    @State private var startupError: StartupError?
+    @StateObject private var startupState = StartupState()
     
     init() {
-        configureRealm()
-        
         // 预热关键单例（确保在主线程初始化）
         _ = AuthManager.shared
         _ = CreditsManager.shared
     }
     
-    /// 配置 Realm 数据库
-    private func configureRealm() {
-        let appGroupId = "group.com.chaosky.Stash"
-        
-        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) else {
-            print("StashApp: ERROR - Shared App Group container not found")
-            // 不调用 fatalError，而是设置错误状态
-            // 注意：在 init() 中无法直接设置 @State，需要在 body 中处理
-            // 这里先设置默认配置，让 App 能够启动
-            let fallbackURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("fallback.realm")
-            let config = Realm.Configuration(
-                fileURL: fallbackURL,
-                schemaVersion: 6,
-                migrationBlock: realmMigrationBlock
-            )
-            Realm.Configuration.defaultConfiguration = config
-            return
-        }
-        
-        let realmURL = container.appendingPathComponent("default.realm")
-        let config = Realm.Configuration(
-            fileURL: realmURL,
-            schemaVersion: 6,
-            migrationBlock: realmMigrationBlock
-        )
-        Realm.Configuration.defaultConfiguration = config
-        
-        print("StashApp: Realm configured at \(realmURL.path)")
-    }
-    
-    /// Realm 迁移逻辑
-    private var realmMigrationBlock: MigrationBlock {
-        return { migration, oldSchemaVersion in
-            print("StashApp: Migrating Realm from schema version \(oldSchemaVersion) to 6")
-            // 目前不需要特殊迁移逻辑
-            // Realm 会自动处理简单的 schema 变更（添加/删除属性）
-            // 如果未来需要复杂迁移，在这里添加
-        }
-    }
-    
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .onChange(of: scenePhase) { _, newPhase in
-                    if newPhase == .active {
-                        // App 进入前台时，触发后台快照抓取
-                        Task {
-                            await processPendingSnapshots()
-                        }
-                    }
+            Group {
+                if let issue = startupState.issue {
+                    StartupIssueView(
+                        issue: issue,
+                        onRetry: { startupState.reconfigure() },
+                        onContinueOffline: { startupState.continueOffline() }
+                    )
+                } else {
+                    ContentView()
                 }
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .active, startupState.issue == nil else {
+                    return
+                }
+                
+                // App 进入前台时，触发后台快照抓取
+                Task {
+                    await processPendingSnapshots()
+                }
+            }
         }
     }
     

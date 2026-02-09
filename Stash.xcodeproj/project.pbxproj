@@ -10,6 +10,7 @@
 		439739282F0FAFFA006462EF /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		439739292F0FAFFA006462EF /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		439739702F0FB7E3006462EF /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = SUPABASE0001 /* Supabase */; };
+		43F0E900308A7D3D00A00101 /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 439A66C02F0CAD8C00C9DEF7 /* RealmSwift */; };
 		439A66B12F0BC53400C9DEF7 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 439A66A72F0BC53400C9DEF7 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		439A66C12F0CAD8C00C9DEF7 /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 439A66C02F0CAD8C00C9DEF7 /* RealmSwift */; };
 		439A66C82F0CADB200C9DEF7 /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 439A66C72F0CADB200C9DEF7 /* RealmSwift */; };
@@ -89,6 +90,7 @@
 				Shared/AppRuntimeConfig.swift,
 				Shared/AssetItem.swift,
 				Shared/OpenAIClient.swift,
+				Shared/RealmConfig.swift,
 				Shared/Secrets.swift,
 				Shared/StorageManager.swift,
 			);
@@ -138,6 +140,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				43F0E900308A7D3D00A00101 /* RealmSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -237,6 +240,7 @@
 			);
 			name = StashTests;
 			packageProductDependencies = (
+				439A66C02F0CAD8C00C9DEF7 /* RealmSwift */,
 			);
 			productName = StashTests;
 			productReference = 439A66852F0BB81400C9DEF7 /* StashTests.xctest */;
@@ -741,7 +745,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 28D3MM78W3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Stash/ShareExtension-Info.plist";
@@ -772,7 +776,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 28D3MM78W3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Stash/ShareExtension-Info.plist";

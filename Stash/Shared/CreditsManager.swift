@@ -34,8 +34,11 @@ class CreditsManager: ObservableObject {
     @Published var syncErrorMessage: String?
     
     private var userId: String?
+    private let clientResolver: () throws -> SupabaseClient
     
-    private init() {}
+    init(clientResolver: @escaping () throws -> SupabaseClient = { try requireSupabaseClient() }) {
+        self.clientResolver = clientResolver
+    }
     
     // MARK: - Load User Credits
     
@@ -45,7 +48,7 @@ class CreditsManager: ObservableObject {
         syncErrorMessage = nil
         
         do {
-            let client = try requireSupabaseClient()
+            let client = try clientResolver()
             let records: [SubscriptionRecord] = try await client
                 .from("subscriptions")
                 .select()
@@ -157,7 +160,7 @@ class CreditsManager: ObservableObject {
         )
         
         do {
-            let client = try requireSupabaseClient()
+            let client = try clientResolver()
             try await client
                 .from("subscriptions")
                 .upsert(record, onConflict: "user_id")

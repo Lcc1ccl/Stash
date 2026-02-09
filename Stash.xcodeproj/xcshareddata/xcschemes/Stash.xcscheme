@@ -28,7 +28,38 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
-      shouldAutocreateTestPlan = "YES">
+      shouldAutocreateTestPlan = "NO">
+      <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "439A66842F0BB81400C9DEF7"
+               BuildableName = "StashTests.xctest"
+               BlueprintName = "StashTests"
+               ReferencedContainer = "container:Stash.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "439A668E2F0BB81500C9DEF7"
+               BuildableName = "StashUITests.xctest"
+               BlueprintName = "StashUITests"
+               ReferencedContainer = "container:Stash.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "439A66772F0BB81300C9DEF7"
+            BuildableName = "Stash.app"
+            BlueprintName = "Stash"
+            ReferencedContainer = "container:Stash.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

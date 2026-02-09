@@ -5,12 +5,19 @@ import Testing
 
 @MainActor
 struct AppGroupRealmIntegrationTests {
-    @Test
+    @Test(
+        .enabled(
+            if: FileManager.default.containerURL(
+                forSecurityApplicationGroupIdentifier: "group.com.chaosky.Stash"
+            ) != nil,
+            "Requires App Group entitlement for group.com.chaosky.Stash."
+        )
+    )
     func appAndExtensionRealmConfigurationsStayConsistent() throws {
-        guard let config = StorageManager.shared.sharedRealmConfiguration() else {
-            #expect(Bool(false), "App Group Realm configuration is unavailable.")
-            return
-        }
+        let config = try #require(
+            StorageManager.shared.sharedRealmConfiguration(),
+            "App Group Realm configuration is unavailable."
+        )
         
         #expect(config.schemaVersion == 6)
         

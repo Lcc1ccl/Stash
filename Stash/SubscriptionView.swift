@@ -23,6 +23,22 @@ struct SubscriptionView: View {
                     }
                     .padding(.top, 24)
                     
+                    if authManager.isOfflineMode {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("订阅服务离线", systemImage: "wifi.slash")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(.orange)
+                            Text(authManager.offlineReason ?? "云端订阅服务当前不可用，请稍后再试。")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.orange.opacity(0.12))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                    }
+                    
                     // Login prompt if not logged in
                     if !authManager.isLoggedIn {
                         VStack(spacing: 12) {
@@ -90,7 +106,7 @@ struct SubscriptionView: View {
                         .foregroundColor(.white)
                         .cornerRadius(12)
                         .padding(.horizontal)
-                        .disabled(isUpgrading)
+                        .disabled(isUpgrading || authManager.isOfflineMode)
                         .accessibilityIdentifier("subscription.upgradeButton")
                     }
                     

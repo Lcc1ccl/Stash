@@ -39,15 +39,45 @@ class ShareViewController: SLComposeServiceViewController {
         
         Task {
             let newItem = await ingestionPipeline.buildAssetItem(url: url, attachedImageData: imageData)
-            _ = StorageManager.shared.saveResult(newItem)
+            let saveResult = StorageManager.shared.saveResult(newItem)
             
             await MainActor.run {
-                extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+                switch saveResult {
+                case .success:
+                    extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+                case .failure(let error):
+                    presentSaveErrorAlert(error: error, extensionContext: extensionContext)
+                }
             }
         }
     }
     
     override func configurationItems() -> [Any]! {
         []
+    }
+    
+    private func presentSaveErrorAlert(error: StorageError, extensionContext: NSExtensionContext?) {
+        let alert = UIAlertController(
+            title: "保存失败",
+            message: error.localizedDescription,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "关闭", style: .cancel) { _ in
+            extensionContext?.cancelRequest(withError: error.asNSError)
+        })
+        alert.addAction(UIAlertAction(title: "仍然退出", style: .default) { _ in
+            extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+        })
+        present(alert, animated: true)
+    }
+}
+
+private extension StorageError {
+    var asNSError: NSError {
+        NSError(
+            domain: "ShareExtension.Storage",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: localizedDescription]
+        )
     }
 }

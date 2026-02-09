@@ -41,6 +41,13 @@ struct ContentView: View {
     private var displayAssets: [AssetItem] {
         filterModel.displayAssets(from: allAssets)
     }
+    
+    private var storageWarningMessage: String? {
+        guard StorageManager.shared.sharedRealmConfiguration() == nil else {
+            return nil
+        }
+        return "共享存储不可用，当前已切换为离线本地存储模式。"
+    }
 
 
     var body: some View {
@@ -188,6 +195,23 @@ struct ContentView: View {
                         if isSearching {
                             dismissSearch()
                         }
+                    }
+                    
+                    if let storageWarningMessage {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text(storageWarningMessage)
+                                .font(.caption.weight(.medium))
+                                .foregroundColor(Color(uiColor: .slate500))
+                            Spacer()
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.orange.opacity(0.12))
+                        .cornerRadius(10)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 8)
                     }
                     
                     // Main Content - Switch based on activeTab
