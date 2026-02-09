@@ -66,6 +66,7 @@ struct SettingsView: View {
                                     .foregroundColor(.secondary)
                             }
                         }
+                        .accessibilityIdentifier("settings.loginButton")
                     }
                 } header: {
                     Text("账号")
@@ -118,6 +119,7 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
+                    .accessibilityIdentifier("settings.upgradePlanButton")
                 } header: {
                     Text("订阅与积分")
                 }
@@ -143,6 +145,7 @@ struct SettingsView: View {
                     Toggle(isOn: $notificationsEnabled) {
                         Label("周回顾通知", systemImage: "bell")
                     }
+                    .accessibilityIdentifier("settings.notificationToggle")
                     .onChange(of: notificationsEnabled) { _, newValue in
                         if newValue {
                             NotificationManager.shared.requestAuthorization { granted in
@@ -220,10 +223,15 @@ struct AIProviderSettingsView: View {
     @State private var selectedProvider: AIProvider = .builtin
     @State private var apiKey: String = ""
     @State private var customEndpoint: String = ""
+    @State private var initialProvider: AIProvider = .builtin
+    @State private var initialAPIKey: String = ""
+    @State private var initialCustomEndpoint: String = ""
     
     // Alert states
     @State private var showingUnlockConfirm = false
     @State private var showingInsufficientCredits = false
+    @State private var showingValidationError = false
+    @State private var validationErrorMessage = ""
     @State private var isSaving = false
     
     private var config: AIProviderConfig? {
@@ -237,12 +245,9 @@ struct AIProviderSettingsView: View {
     
     /// 是否有未保存的更改
     private var hasChanges: Bool {
-        guard let config = config else {
-            return selectedProvider != .builtin || !apiKey.isEmpty || !customEndpoint.isEmpty
-        }
-        return config.provider != selectedProvider ||
-               config.customApiKey != apiKey ||
-               config.customEndpoint != customEndpoint
+        selectedProvider != initialProvider ||
+        apiKey != initialAPIKey ||
+        customEndpoint != initialCustomEndpoint
     }
     
     var body: some View {
@@ -346,17 +351,39 @@ struct AIProviderSettingsView: View {
         } message: {
             Text("启用自定义提供方需要 10 积分。\n当前积分：\(String(format: "%.1f", creditsManager.creditsRemaining))\n\n请升级订阅或等待每日积分刷新。")
         }
+        .alert("配置无效", isPresented: $showingValidationError) {
+            Button("知道了", role: .cancel) { }
+        } message: {
+            Text(validationErrorMessage)
+        }
     }
     
     private func loadConfig() {
         if let config = config {
             selectedProvider = config.provider
-            apiKey = config.customApiKey
+            apiKey = resolveAPIKey(from: config)
             customEndpoint = config.customEndpoint
+            migrateLegacyAPIKeyIfNeeded(config)
+            syncInitialState()
+        } else {
+            selectedProvider = .builtin
+            apiKey = ""
+            customEndpoint = ""
+            syncInitialState()
         }
     }
     
     private func handleSave() {
+        let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        apiKey = trimmedKey
+        
+        if selectedProvider.requiresApiKey,
+           let validationError = validateAPIKey(trimmedKey, provider: selectedProvider) {
+            validationErrorMessage = validationError
+            showingValidationError = true
+            return
+        }
+        
         // 如果选择了自定义提供方且尚未解锁
         if needsUnlock {
             // 检查积分是否足够
@@ -384,19 +411,93 @@ struct AIProviderSettingsView: View {
     }
     
     private func saveConfig() {
-        try? realm.write {
-            if let config = config {
-                config.provider = selectedProvider
-                config.customApiKey = apiKey
-                config.customEndpoint = customEndpoint
-            } else {
-                let newConfig = AIProviderConfig()
-                newConfig.provider = selectedProvider
-                newConfig.customApiKey = apiKey
-                newConfig.customEndpoint = customEndpoint
-                realm.add(newConfig)
+        do {
+            try realm.write {
+                let targetConfig: AIProviderConfig
+                if let existing = config {
+                    targetConfig = existing
+                } else {
+                    let created = AIProviderConfig()
+                    realm.add(created)
+                    targetConfig = created
+                }
+                
+                targetConfig.provider = selectedProvider
+                targetConfig.customEndpoint = customEndpoint
+                
+                if selectedProvider.requiresApiKey {
+                    try persistAPIKey(apiKey, into: targetConfig)
+                } else {
+                    targetConfig.customApiKey = ""
+                }
             }
+            syncInitialState()
+        } catch {
+            validationErrorMessage = "保存 API 配置失败：\(error.localizedDescription)"
+            showingValidationError = true
         }
+    }
+    
+    private func validateAPIKey(_ key: String, provider: AIProvider) -> String? {
+        if key.isEmpty {
+            return "请输入 API Key 后再保存。"
+        }
+        if key.count < 16 {
+            return "API Key 长度过短，请检查是否完整。"
+        }
+        
+        switch provider {
+        case .openai where !key.hasPrefix("sk-"):
+            return "OpenAI Key 通常以 `sk-` 开头，请确认后重试。"
+        case .anthropic where !key.hasPrefix("sk-ant-"):
+            return "Anthropic Key 通常以 `sk-ant-` 开头，请确认后重试。"
+        default:
+            return nil
+        }
+    }
+    
+    private func persistAPIKey(_ key: String, into config: AIProviderConfig) throws {
+        let reference = keychainReference(from: config.customApiKey) ?? "ai-provider.\(config.id.uuidString)"
+        try SecureKeyStore.shared.save(key, for: reference)
+        config.customApiKey = "kc://\(reference)"
+    }
+    
+    private func resolveAPIKey(from config: AIProviderConfig) -> String {
+        guard let reference = keychainReference(from: config.customApiKey) else {
+            return config.customApiKey
+        }
+        
+        return (try? SecureKeyStore.shared.load(for: reference)) ?? ""
+    }
+    
+    private func migrateLegacyAPIKeyIfNeeded(_ config: AIProviderConfig) {
+        guard !config.customApiKey.isEmpty,
+              keychainReference(from: config.customApiKey) == nil else {
+            return
+        }
+        
+        do {
+            try realm.write {
+                try persistAPIKey(config.customApiKey, into: config)
+            }
+            apiKey = resolveAPIKey(from: config)
+        } catch {
+            validationErrorMessage = "迁移旧 API Key 到安全存储失败：\(error.localizedDescription)"
+            showingValidationError = true
+        }
+    }
+    
+    private func keychainReference(from storedValue: String) -> String? {
+        guard storedValue.hasPrefix("kc://") else {
+            return nil
+        }
+        return String(storedValue.dropFirst(5))
+    }
+    
+    private func syncInitialState() {
+        initialProvider = selectedProvider
+        initialAPIKey = apiKey
+        initialCustomEndpoint = customEndpoint
     }
 }
 

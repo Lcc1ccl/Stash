@@ -17,9 +17,9 @@ enum SubscriptionPlan: String, CaseIterable {
     /// 每日积分（1积分 = 1000 tokens）
     var dailyCredits: Int {
         switch self {
-        case .free: return 5
-        case .plus: return 30
-        case .pro: return 100
+        case .free: return 10
+        case .plus: return 50
+        case .pro: return 200
         }
     }
     
@@ -34,11 +34,11 @@ enum SubscriptionPlan: String, CaseIterable {
     var features: [String] {
         switch self {
         case .free:
-            return ["每日 5 积分", "AI 摘要生成", "基础功能"]
+            return ["每日 10 积分", "AI 摘要生成", "基础功能"]
         case .plus:
-            return ["每日 30 积分", "AI 摘要 + 聊天", "优先支持"]
+            return ["每日 50 积分", "AI 摘要 + 聊天", "优先支持"]
         case .pro:
-            return ["每日 100 积分", "无限 AI 功能", "优先支持", "高级功能"]
+            return ["每日 200 积分", "无限 AI 功能", "优先支持", "高级功能"]
         }
     }
 }

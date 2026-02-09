@@ -39,12 +39,14 @@ struct LoginView: View {
                         .padding()
                         .background(Color(.systemGray6))
                         .cornerRadius(12)
+                        .accessibilityIdentifier("login.emailField")
                     
                     SecureField("密码", text: $password)
                         .textContentType(isRegistering ? .newPassword : .password)
                         .padding()
                         .background(Color(.systemGray6))
                         .cornerRadius(12)
+                        .accessibilityIdentifier("login.passwordField")
                     
                     if isRegistering {
                         SecureField("确认密码", text: $confirmPassword)
@@ -84,6 +86,7 @@ struct LoginView: View {
                 .cornerRadius(12)
                 .padding(.horizontal)
                 .disabled(authManager.isLoading)
+                .accessibilityIdentifier("login.submitButton")
                 
                 // Toggle Mode
                 Button {

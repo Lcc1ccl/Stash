@@ -16,6 +16,7 @@ struct SubscriptionView: View {
                     VStack(spacing: 8) {
                         Text("选择您的方案")
                             .font(.title.bold())
+                            .accessibilityIdentifier("subscription.title")
                         Text("解锁更多 AI 功能")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
@@ -58,7 +59,7 @@ struct SubscriptionView: View {
                         Text("功能对比")
                             .font(.headline)
                         
-                        FeatureRow(feature: "每日积分", free: "5", plus: "30", pro: "100")
+                        FeatureRow(feature: "每日积分", free: "10", plus: "50", pro: "200")
                         FeatureRow(feature: "AI 摘要", free: "✓", plus: "✓", pro: "✓")
                         FeatureRow(feature: "AI 聊天", free: "有限", plus: "✓", pro: "✓")
                         FeatureRow(feature: "优先支持", free: "—", plus: "✓", pro: "✓")
@@ -90,6 +91,7 @@ struct SubscriptionView: View {
                         .cornerRadius(12)
                         .padding(.horizontal)
                         .disabled(isUpgrading)
+                        .accessibilityIdentifier("subscription.upgradeButton")
                     }
                     
                     Text("* 当前为模拟订阅，正式支付功能即将上线")

@@ -112,3 +112,5 @@ AGENTS.md
 .gemini/
 .cursor/
 .claude/
+.codex/
+.opencode/

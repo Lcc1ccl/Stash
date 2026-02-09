@@ -1,50 +1,92 @@
 import Foundation
 import Supabase
 
-/// Supabase 客户端配置
-enum SupabaseConfig {
-    static let urlString = "https://aikwrkcamqqzwlceyppu.supabase.co"
-    static let anonKey = "sb_publishable_gYkJVFE_5IbTSl82eqDiNQ_fM7GkVJG"
+enum SupabaseConfigError: LocalizedError {
+    case missingURL
+    case invalidURL(String)
+    case missingAnonKey
     
-    /// 安全获取 URL
-    static var url: URL? {
-        URL(string: urlString)
+    var errorDescription: String? {
+        switch self {
+        case .missingURL:
+            return "Supabase URL is missing. Set SUPABASE_URL in environment or Info.plist."
+        case .invalidURL(let raw):
+            return "Supabase URL is invalid: \(raw)"
+        case .missingAnonKey:
+            return "Supabase anon key is missing. Set SUPABASE_ANON_KEY in environment or Info.plist."
+        }
+    }
+}
+
+struct ResolvedSupabaseConfig {
+    let url: URL
+    let anonKey: String
+}
+
+enum SupabaseConfig {
+    static func resolve() -> Result<ResolvedSupabaseConfig, SupabaseConfigError> {
+        guard let rawURL = AppRuntimeConfig.supabaseURLString else {
+            return .failure(.missingURL)
+        }
+        guard let url = URL(string: rawURL) else {
+            return .failure(.invalidURL(rawURL))
+        }
+        guard let anonKey = AppRuntimeConfig.supabaseAnonKey else {
+            return .failure(.missingAnonKey)
+        }
+        
+        return .success(ResolvedSupabaseConfig(url: url, anonKey: anonKey))
     }
 }
 
 /// Supabase 服务（懒加载单例）
 enum SupabaseService {
-    /// 共享的 Supabase 客户端实例
-    /// 使用 Optional 以处理初始化失败的情况
     private(set) static var shared: SupabaseClient? = {
-        guard let url = SupabaseConfig.url else {
-            print("SupabaseService: ERROR - Invalid Supabase URL")
+        switch SupabaseConfig.resolve() {
+        case .success(let config):
+            print("SupabaseService: Initializing Supabase client")
+            return SupabaseClient(
+                supabaseURL: config.url,
+                supabaseKey: config.anonKey
+            )
+        case .failure(let error):
+            print("SupabaseService: \(error.localizedDescription)")
             return nil
         }
-        print("SupabaseService: Initializing Supabase client")
-        return SupabaseClient(
-            supabaseURL: url,
-            supabaseKey: SupabaseConfig.anonKey
-        )
     }()
     
-    /// 检查 Supabase 是否可用
+    static var configurationError: SupabaseConfigError? {
+        switch SupabaseConfig.resolve() {
+        case .success:
+            return nil
+        case .failure(let error):
+            return error
+        }
+    }
+    
     static var isAvailable: Bool {
         shared != nil
     }
 }
 
-/// 全局 supabase 变量（为了兼容现有代码）
-/// 使用计算属性实现懒加载，避免启动时阻塞
-var supabase: SupabaseClient {
+enum SupabaseServiceError: LocalizedError {
+    case unavailable(SupabaseConfigError?)
+    
+    var errorDescription: String? {
+        switch self {
+        case .unavailable(let configError):
+            return configError?.localizedDescription ?? "Supabase client is unavailable."
+        }
+    }
+}
+
+func requireSupabaseClient() throws -> SupabaseClient {
     guard let client = SupabaseService.shared else {
-        // 如果初始化失败，创建一个新的实例作为 fallback
-        // 这比 crash 好，但功能可能受限
-        print("SupabaseService: WARNING - Using fallback client")
-        return SupabaseClient(
-            supabaseURL: URL(string: SupabaseConfig.urlString)!,
-            supabaseKey: SupabaseConfig.anonKey
-        )
+        throw SupabaseServiceError.unavailable(SupabaseService.configurationError)
     }
     return client
+}
+
+var supabase: SupabaseClient? {
+    SupabaseService.shared
 }

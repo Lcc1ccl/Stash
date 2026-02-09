@@ -26,23 +26,33 @@ class AuthManager: ObservableObject {
     
     private func setupAuthStateListener() {
         authStateTask = Task {
-            for await (event, session) in supabase.auth.authStateChanges {
-                await MainActor.run {
-                    switch event {
-                    case .initialSession, .signedIn:
-                        self.currentUser = session?.user
-                        self.isLoggedIn = session?.user != nil
-                        if let userId = session?.user.id {
-                            Task {
-                                await CreditsManager.shared.loadUserCredits(userId: userId.uuidString)
+            do {
+                let client = try requireSupabaseClient()
+                for await (event, session) in client.auth.authStateChanges {
+                    await MainActor.run {
+                        switch event {
+                        case .initialSession, .signedIn:
+                            self.currentUser = session?.user
+                            self.isLoggedIn = session?.user != nil
+                            if let userId = session?.user.id {
+                                Task {
+                                    await CreditsManager.shared.loadUserCredits(userId: userId.uuidString)
+                                }
+                            } else {
+                                CreditsManager.shared.resetForSignedOutState()
                             }
+                        case .signedOut:
+                            self.currentUser = nil
+                            self.isLoggedIn = false
+                            CreditsManager.shared.resetForSignedOutState()
+                        default:
+                            break
                         }
-                    case .signedOut:
-                        self.currentUser = nil
-                        self.isLoggedIn = false
-                    default:
-                        break
                     }
+                }
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = error.localizedDescription
                 }
             }
         }
@@ -55,7 +65,8 @@ class AuthManager: ObservableObject {
         errorMessage = nil
         
         do {
-            let response = try await supabase.auth.signUp(email: email, password: password)
+            let client = try requireSupabaseClient()
+            let response = try await client.auth.signUp(email: email, password: password)
             let user = response.user
             
             // 初始化积分
@@ -75,7 +86,8 @@ class AuthManager: ObservableObject {
         errorMessage = nil
         
         do {
-            let session = try await supabase.auth.signIn(email: email, password: password)
+            let client = try requireSupabaseClient()
+            let session = try await client.auth.signIn(email: email, password: password)
             isLoading = false
             return .success(session.user)
         } catch {
@@ -89,16 +101,20 @@ class AuthManager: ObservableObject {
     func logout() {
         Task {
             do {
-                try await supabase.auth.signOut()
+                let client = try requireSupabaseClient()
+                try await client.auth.signOut()
             } catch {
-                errorMessage = "登出失败: \(error.localizedDescription)"
+                await MainActor.run {
+                    self.errorMessage = "登出失败: \(error.localizedDescription)"
+                }
             }
         }
     }
     
     func resetPassword(email: String) async -> Result<Void, AuthError> {
         do {
-            try await supabase.auth.resetPasswordForEmail(email)
+            let client = try requireSupabaseClient()
+            try await client.auth.resetPasswordForEmail(email)
             return .success(())
         } catch {
             return .failure(mapSupabaseError(error))
@@ -108,6 +124,10 @@ class AuthManager: ObservableObject {
     // MARK: - Error Mapping
     
     private func mapSupabaseError(_ error: Error) -> AuthError {
+        if let serviceError = error as? SupabaseServiceError {
+            return .configurationError(serviceError.localizedDescription)
+        }
+        
         let message = error.localizedDescription.lowercased()
         
         if message.contains("already registered") || message.contains("already exists") {
@@ -129,6 +149,7 @@ class AuthManager: ObservableObject {
 // MARK: - Auth Errors
 
 enum AuthError: LocalizedError {
+    case configurationError(String)
     case emailAlreadyExists
     case invalidEmail
     case weakPassword
@@ -138,6 +159,7 @@ enum AuthError: LocalizedError {
     
     var errorDescription: String? {
         switch self {
+        case .configurationError(let msg): return msg
         case .emailAlreadyExists: return "该邮箱已被注册"
         case .invalidEmail: return "邮箱格式无效"
         case .weakPassword: return "密码至少需要 6 位"

@@ -9,6 +9,7 @@ struct AssetDetailView: View {
     @State private var chatInput = ""
     @State private var chatHistory: [ChatMessage] = []
     @State private var isThinking = false
+    @State private var operationErrorMessage: String?
     
     struct ChatMessage: Identifiable {
         let id = UUID()
@@ -46,40 +47,12 @@ struct AssetDetailView: View {
                             RoundedRectangle(cornerRadius: 32)
                                 .fill(coverColor)
                             
-                            if let imageUrl = item.imageUrl, !imageUrl.isEmpty {
-                                // Check if it's a local file URL
-                                if imageUrl.hasPrefix("file://"), let fileURL = URL(string: imageUrl),
-                                   let data = try? Data(contentsOf: fileURL),
-                                   let uiImage = UIImage(data: data) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                } else if let url = URL(string: imageUrl) {
-                                    // Remote URL
-                                    AsyncImage(url: url) { phase in
-                                        switch phase {
-                                        case .success(let image):
-                                            image
-                                                .resizable()
-                                                .aspectRatio(contentMode: .fill)
-                                        case .failure(_):
-                                            Text(item.coverEmoji)
-                                                .font(.system(size: 80))
-                                        case .empty:
-                                            ProgressView()
-                                        @unknown default:
-                                            Text(item.coverEmoji)
-                                                .font(.system(size: 80))
-                                        }
-                                    }
-                                } else {
-                                    Text(item.coverEmoji)
-                                        .font(.system(size: 80))
-                                }
-                            } else {
-                                Text(item.coverEmoji)
-                                    .font(.system(size: 80))
-                            }
+                            AssetPreviewImageView(
+                                imageUrl: item.imageUrl,
+                                fallbackEmoji: item.coverEmoji,
+                                fallbackEmojiSize: 80,
+                                aspectMode: .fill
+                            )
                         }
                         .aspectRatio(16/9, contentMode: .fit)
                         .clipShape(RoundedRectangle(cornerRadius: 32))
@@ -249,6 +222,18 @@ struct AssetDetailView: View {
                  chatHistory.append(ChatMessage(role: "ai", text: "I've analyzed \"\(item.title)\". Ask me anything!"))
              }
         }
+        .alert("操作失败", isPresented: Binding(
+            get: { operationErrorMessage != nil },
+            set: { newValue in
+                if !newValue {
+                    operationErrorMessage = nil
+                }
+            }
+        )) {
+            Button("知道了", role: .cancel) {}
+        } message: {
+            Text(operationErrorMessage ?? "请稍后再试。")
+        }
     }
     
     private var coverColor: Color {
@@ -272,7 +257,7 @@ struct AssetDetailView: View {
                 item.isReviewed = true
             }
         } catch {
-            print("Error marking item as read: \(error)")
+            operationErrorMessage = "标记已读失败：\(error.localizedDescription)"
         }
     }
     

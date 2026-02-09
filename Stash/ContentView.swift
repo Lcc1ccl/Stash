@@ -11,18 +11,14 @@ import RealmSwift
 struct ContentView: View {
     @ObservedResults(AssetItem.self, sortDescriptor: SortDescriptor(keyPath: "createdAt", ascending: false)) var assets
     @Environment(\.realm) var realm
+    @StateObject private var filterModel = ContentFilterViewModel()
     
     // UI States
-    @State private var searchText = ""
     @State private var activeTab = "inbox"
     @State private var showingSettings = false
-    @State private var selectedTag: String? = nil
     @State private var isSearching = false // Search Bar Animation State
+    @State private var operationErrorMessage: String?
     @FocusState private var isSearchFieldFocused: Bool
-    
-    // List Tab States (Recent Loot / All Loots)
-    @State private var activeListTab = "recent" // "recent" or "all"
-    @State private var shuffledAssets: [AssetItem] = []
     
     // Grid Columns for Themes tab
     let columns = [
@@ -30,87 +26,20 @@ struct ContentView: View {
         GridItem(.flexible(), spacing: 16)
     ]
     
-    // Computed property for all unique tags
-    private var allTags: [String] {
-        let all = assets.flatMap { $0.tags }
-        let unique = Set(all)
-        return Array(unique).sorted()
-    }
-    
-    // Suggested tags (top 5 most frequent)
-    private var suggestedTags: [String] {
-        let all = assets.flatMap { $0.tags }
-        let counts = all.reduce(into: [:]) { counts, tag in
-            counts[tag, default: 0] += 1
-        }
-        return counts.sorted { $0.value > $1.value }
-            .prefix(5)
-            .map { $0.key }
-    }
-    
-    // MARK: - Filtered Assets for Recent Loot (by time, most recent)
-    private var recentAssets: [AssetItem] {
-        var result = Array(assets)
-        
-        // Apply tag filter if selected
-        if let tag = selectedTag {
-            result = result.filter { $0.tags.contains(tag) }
-        }
-        
-        // Apply search filter
-        if !searchText.isEmpty {
-            result = applySearchFilter(to: result)
-        }
-        
-        return result
-    }
-    
-    // MARK: - All Assets (for All Loots tab)
     private var allAssets: [AssetItem] {
-        var result = Array(assets)
-        
-        // Apply tag filter if selected
-        if let tag = selectedTag {
-            result = result.filter { $0.tags.contains(tag) }
-        }
-        
-        // Apply search filter
-        if !searchText.isEmpty {
-            result = applySearchFilter(to: result)
-        }
-        
-        return result
+        Array(assets)
     }
     
-    // MARK: - Current Display Assets (based on active list tab)
+    private var allTags: [String] {
+        filterModel.allTags(from: allAssets)
+    }
+    
+    private var suggestedTags: [String] {
+        filterModel.suggestedTags(from: allAssets)
+    }
+    
     private var displayAssets: [AssetItem] {
-        if activeListTab == "recent" {
-            return recentAssets
-        } else {
-            return shuffledAssets.isEmpty ? allAssets : shuffledAssets
-        }
-    }
-    
-    // MARK: - Search Filter Helper
-    private func applySearchFilter(to items: [AssetItem]) -> [AssetItem] {
-        let components = searchText.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ")
-        let searchTags = components.filter { $0.hasPrefix("#") }.map { String($0.dropFirst()).lowercased() }
-        let keywords = components.filter { !$0.hasPrefix("#") }.map { String($0).lowercased() }
-        
-        return items.filter { item in
-            // Match ALL parsed tags
-            let matchesTags = searchTags.allSatisfy { tagQuery in
-                item.tags.contains { $0.lowercased().contains(tagQuery) }
-            }
-            if !matchesTags { return false }
-            
-            // Match Keywords (if any)
-            if keywords.isEmpty { return true }
-            
-            let keywordQuery = keywords.joined(separator: " ")
-            return item.title.lowercased().contains(keywordQuery) ||
-                   (item.summary?.lowercased().contains(keywordQuery) ?? false)
-        }
+        filterModel.displayAssets(from: allAssets)
     }
 
 
@@ -168,6 +97,7 @@ struct ContentView: View {
                                             .foregroundColor(Color(uiColor: .slate500))
                                     )
                             }
+                            .accessibilityIdentifier("content.settingsButton")
                         }
                         
                         // Expandable Search Panel
@@ -177,21 +107,21 @@ struct ContentView: View {
                                     Image(systemName: "magnifyingglass")
                                         .foregroundColor(.gray)
                                     
-                                    TextField("Search... (type # for tags)", text: $searchText)
+                                    TextField("Search... (type # for tags)", text: $filterModel.searchText)
                                         .font(.system(size: 14, weight: .bold))
                                         .foregroundColor(.primary)
                                         .autocapitalization(.none)
                                         .focused($isSearchFieldFocused)
                                     
-                                    if !searchText.isEmpty {
-                                        Button(action: { searchText = "" }) {
+                                    if !filterModel.searchText.isEmpty {
+                                        Button(action: { filterModel.searchText = "" }) {
                                             Image(systemName: "xmark.circle.fill")
                                                 .foregroundColor(.gray)
                                         }
                                     }
                                     
                                     Button("Cancel") {
-                                        searchText = ""
+                                        filterModel.searchText = ""
                                         isSearchFieldFocused = false
                                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                             withAnimation(.spring()) {
@@ -215,7 +145,7 @@ struct ContentView: View {
                                     ScrollView(.horizontal, showsIndicators: false) {
                                         HStack(spacing: 8) {
                                             ForEach(suggestedTags, id: \.self) { tag in
-                                                Button(action: { searchText = "#\(tag) " }) {
+                                                Button(action: { filterModel.searchText = "#\(tag) " }) {
                                                     Text("#\(tag)")
                                                         .font(.system(size: 12, weight: .semibold))
                                                         .foregroundColor(Color(uiColor: .slate500))
@@ -318,6 +248,18 @@ struct ContentView: View {
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
             }
+            .alert("操作失败", isPresented: Binding(
+                get: { operationErrorMessage != nil },
+                set: { newValue in
+                    if !newValue {
+                        operationErrorMessage = nil
+                    }
+                }
+            )) {
+                Button("知道了", role: .cancel) {}
+            } message: {
+                Text(operationErrorMessage ?? "请稍后再试。")
+            }
             .onAppear {
                 NotificationManager.shared.requestAuthorization { granted in
                     if granted {
@@ -333,17 +275,17 @@ struct ContentView: View {
         if isSearching {
             isSearchFieldFocused = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring()) {
-                    isSearching = false
-                    searchText = "" // Clear text on dismiss (Cancel behavior)
+                    withAnimation(.spring()) {
+                        isSearching = false
+                        filterModel.searchText = "" // Clear text on dismiss (Cancel behavior)
+                    }
                 }
             }
         }
-    }
 
     // MARK: - Shuffle Action (for All Loots tab) - One-time action
     private func shuffleAssets() {
-        shuffledAssets = allAssets.shuffled()
+        filterModel.shuffle(using: allAssets)
     }
     
     // MARK: - Mark as Read Action
@@ -353,7 +295,7 @@ struct ContentView: View {
                 item.isReviewed = true
             }
         } catch {
-            print("Error marking item as read: \(error)")
+            operationErrorMessage = "标记已读失败：\(error.localizedDescription)"
         }
     }
     
@@ -364,7 +306,7 @@ struct ContentView: View {
                 realm.delete(item)
             }
         } catch {
-            print("Error deleting item: \(error)")
+            operationErrorMessage = "删除失败：\(error.localizedDescription)"
         }
     }
     
@@ -390,31 +332,31 @@ struct ContentView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         // "All" Tag
-                        Button(action: { selectedTag = nil }) {
+                        Button(action: { filterModel.selectedTag = nil }) {
                             Text("全部")
                                 .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(selectedTag == nil ? .white : .gray)
+                                .foregroundColor(filterModel.selectedTag == nil ? .white : .gray)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
-                                .background(selectedTag == nil ? Color(uiColor: .slate900) : Color(uiColor: .gray100))
+                                .background(filterModel.selectedTag == nil ? Color(uiColor: .slate900) : Color(uiColor: .gray100))
                                 .cornerRadius(20)
                         }
                         
                         // Dynamic Tags
                         ForEach(allTags, id: \.self) { tag in
                             Button(action: {
-                                if selectedTag == tag {
-                                    selectedTag = nil
+                                if filterModel.selectedTag == tag {
+                                    filterModel.selectedTag = nil
                                 } else {
-                                    selectedTag = tag
+                                    filterModel.selectedTag = tag
                                 }
                             }) {
                                 Text(tag)
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(selectedTag == tag ? .white : .gray)
+                                    .foregroundColor(filterModel.selectedTag == tag ? .white : .gray)
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 8)
-                                    .background(selectedTag == tag ? Color(uiColor: .slate900) : Color(uiColor: .gray100))
+                                    .background(filterModel.selectedTag == tag ? Color(uiColor: .slate900) : Color(uiColor: .gray100))
                                     .cornerRadius(20)
                             }
                         }
@@ -427,12 +369,12 @@ struct ContentView: View {
                 HStack {
                     // Tab: Recent Loot
                     Button(action: {
-                        activeListTab = "recent"
-                        shuffledAssets = [] // Reset shuffle when switching tabs
+                        filterModel.activeListTab = "recent"
+                        filterModel.resetShuffle()
                     }) {
                         Text("Recent Loot")
                             .font(.system(size: 18, weight: .black))
-                            .foregroundColor(activeListTab == "recent" ? Color(uiColor: .slate900) : Color(uiColor: .gray300))
+                            .foregroundColor(filterModel.activeListTab == "recent" ? Color(uiColor: .slate900) : Color(uiColor: .gray300))
                     }
                     
                     Text("/")
@@ -442,15 +384,15 @@ struct ContentView: View {
                     
                     // Tab: All Loots
                     Button(action: {
-                        activeListTab = "all"
-                        shuffledAssets = [] // Reset shuffle when switching tabs
+                        filterModel.activeListTab = "all"
+                        filterModel.resetShuffle()
                     }) {
                         Text("All Loots")
                             .font(.system(size: 18, weight: .black))
-                            .foregroundColor(activeListTab == "all" ? Color(uiColor: .slate900) : Color(uiColor: .gray300))
+                            .foregroundColor(filterModel.activeListTab == "all" ? Color(uiColor: .slate900) : Color(uiColor: .gray300))
                     }
                     
-                    if !searchText.isEmpty {
+                    if !filterModel.searchText.isEmpty {
                         Text("(\(displayAssets.count) results)")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.gray)
@@ -459,7 +401,7 @@ struct ContentView: View {
                     Spacer()
                     
                     // Right side buttons based on active tab
-                    if activeListTab == "all" {
+                    if filterModel.activeListTab == "all" {
                         HStack(spacing: 8) {
                             // Shuffle Button - One-time action, no highlight state
                             Button(action: shuffleAssets) {
@@ -519,14 +461,14 @@ struct ContentView: View {
                 // Asset List with Swipe Actions
                 if displayAssets.isEmpty {
                     VStack(spacing: 16) {
-                        Image(systemName: searchText.isEmpty ? "tray" : "magnifyingglass")
+                        Image(systemName: filterModel.searchText.isEmpty ? "tray" : "magnifyingglass")
                             .font(.system(size: 60))
                             .foregroundColor(.gray)
-                        Text(searchText.isEmpty ? "No items yet" : "No results found")
+                        Text(filterModel.searchText.isEmpty ? "No items yet" : "No results found")
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundColor(.gray)
-                        Text(searchText.isEmpty ? "Use the Share button in Safari or other apps to save links here." : "Try a different search term or tag.")
+                        Text(filterModel.searchText.isEmpty ? "Use the Share button in Safari or other apps to save links here." : "Try a different search term or tag.")
                             .font(.callout)
                             .foregroundColor(.gray)
                             .multilineTextAlignment(.center)

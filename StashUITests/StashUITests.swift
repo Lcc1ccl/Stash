@@ -38,4 +38,47 @@ final class StashUITests: XCTestCase {
             XCUIApplication().launch()
         }
     }
+    
+    @MainActor
+    func testSettingsNotificationToggleFlow() throws {
+        let app = XCUIApplication()
+        app.launch()
+        
+        app.buttons["content.settingsButton"].tap()
+        
+        let notificationToggle = app.switches["settings.notificationToggle"]
+        XCTAssertTrue(notificationToggle.waitForExistence(timeout: 3))
+        notificationToggle.tap()
+    }
+    
+    @MainActor
+    func testLoginEntryFlowFromSettings() throws {
+        let app = XCUIApplication()
+        app.launch()
+        
+        app.buttons["content.settingsButton"].tap()
+        
+        let loginButton = app.buttons["settings.loginButton"]
+        guard loginButton.waitForExistence(timeout: 3) else {
+            throw XCTSkip("Login button not visible; user may already be authenticated.")
+        }
+        loginButton.tap()
+        
+        XCTAssertTrue(app.textFields["login.emailField"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.secureTextFields["login.passwordField"].waitForExistence(timeout: 3))
+    }
+    
+    @MainActor
+    func testSubscriptionTransitionFlow() throws {
+        let app = XCUIApplication()
+        app.launch()
+        
+        app.buttons["content.settingsButton"].tap()
+        
+        let upgradeButton = app.buttons["settings.upgradePlanButton"]
+        XCTAssertTrue(upgradeButton.waitForExistence(timeout: 3))
+        upgradeButton.tap()
+        
+        XCTAssertTrue(app.staticTexts["subscription.title"].waitForExistence(timeout: 3))
+    }
 }

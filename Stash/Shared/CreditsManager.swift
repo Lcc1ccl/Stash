@@ -31,6 +31,7 @@ class CreditsManager: ObservableObject {
     @Published var lastRefreshDate: Date?
     @Published var isLoading: Bool = false
     @Published var customProviderUnlocked: Bool = false
+    @Published var syncErrorMessage: String?
     
     private var userId: String?
     
@@ -41,9 +42,11 @@ class CreditsManager: ObservableObject {
     func loadUserCredits(userId: String) async {
         self.userId = userId
         isLoading = true
+        syncErrorMessage = nil
         
         do {
-            let records: [SubscriptionRecord] = try await supabase
+            let client = try requireSupabaseClient()
+            let records: [SubscriptionRecord] = try await client
                 .from("subscriptions")
                 .select()
                 .eq("user_id", value: userId)
@@ -64,9 +67,12 @@ class CreditsManager: ObservableObject {
             }
         } catch {
             print("Error loading credits: \(error)")
+            syncErrorMessage = error.localizedDescription
             // 本地默认值
             currentPlan = .free
             creditsRemaining = Double(SubscriptionPlan.free.dailyCredits)
+            lastRefreshDate = Date()
+            customProviderUnlocked = false
         }
         
         isLoading = false
@@ -82,6 +88,15 @@ class CreditsManager: ObservableObject {
         customProviderUnlocked = false
         
         await saveCreditsToSupabase()
+    }
+    
+    func resetForSignedOutState() {
+        userId = nil
+        currentPlan = .free
+        creditsRemaining = Double(SubscriptionPlan.free.dailyCredits)
+        lastRefreshDate = nil
+        customProviderUnlocked = false
+        syncErrorMessage = nil
     }
     
     // MARK: - Daily Refresh
@@ -142,12 +157,14 @@ class CreditsManager: ObservableObject {
         )
         
         do {
-            try await supabase
+            let client = try requireSupabaseClient()
+            try await client
                 .from("subscriptions")
                 .upsert(record, onConflict: "user_id")
                 .execute()
         } catch {
             print("Error saving credits: \(error)")
+            syncErrorMessage = error.localizedDescription
         }
     }
     
@@ -156,6 +173,16 @@ class CreditsManager: ObservableObject {
     /// 解锁自定义提供方（消耗 10 积分）
     func unlockCustomProvider() async -> Bool {
         let unlockCost = AICreditsCost.customProviderUnlock
+        
+        // 已解锁时不重复扣费（一次性语义）
+        if customProviderUnlocked {
+            return true
+        }
+        
+        guard userId != nil else {
+            syncErrorMessage = "请先登录后再解锁自定义提供方。"
+            return false
+        }
         
         guard creditsRemaining >= unlockCost else {
             return false
@@ -169,7 +196,7 @@ class CreditsManager: ObservableObject {
     
     /// 检查是否可以使用自定义提供方
     func canUseCustomProvider() -> Bool {
-        return customProviderUnlocked || creditsRemaining >= AICreditsCost.customProviderUnlock
+        customProviderUnlocked
     }
 }
 

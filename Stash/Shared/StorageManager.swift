@@ -1,26 +1,52 @@
 import Foundation
 import RealmSwift
 
+enum StorageError: LocalizedError {
+    case appGroupUnavailable
+    case realmUnavailable
+    case writeFailed(String)
+    case fetchFailed(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .appGroupUnavailable:
+            return "无法访问共享存储空间。"
+        case .realmUnavailable:
+            return "数据库当前不可用。"
+        case .writeFailed(let reason):
+            return "保存失败：\(reason)"
+        case .fetchFailed(let reason):
+            return "读取失败：\(reason)"
+        }
+    }
+}
+
 class StorageManager {
     static let shared = StorageManager()
 
     // App Group Identifier
     private let appGroupId = "group.com.chaosky.Stash"
     
-    /// 获取 Realm 实例（可能返回 nil）
-    var realmOptional: Realm? {
+    func sharedRealmConfiguration() -> Realm.Configuration? {
         guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) else {
-            print("StorageManager: ERROR - Shared App Group container not found")
             return nil
         }
         let realmURL = container.appendingPathComponent("default.realm")
-        let config = Realm.Configuration(
+        return Realm.Configuration(
             fileURL: realmURL,
-            schemaVersion: 5,
+            schemaVersion: 6,
             migrationBlock: { migration, oldSchemaVersion in
                 print("StorageManager: Migrating from version \(oldSchemaVersion)")
             }
         )
+    }
+    
+    /// 获取 Realm 实例（可能返回 nil）
+    var realmOptional: Realm? {
+        guard let config = sharedRealmConfiguration() else {
+            print("StorageManager: ERROR - Shared App Group container not found")
+            return nil
+        }
         
         do {
             return try Realm(configuration: config)
@@ -43,25 +69,42 @@ class StorageManager {
     }
 
     func save(_ item: AssetItem) {
+        _ = saveResult(item)
+    }
+    
+    @discardableResult
+    func saveResult(_ item: AssetItem) -> Result<Void, StorageError> {
         guard let realm = realmOptional else {
             print("StorageManager: Cannot save - Realm unavailable")
-            return
+            return .failure(.realmUnavailable)
         }
         
         do {
             try realm.write {
                 realm.add(item)
             }
+            return .success(())
         } catch {
             print("StorageManager: Error saving item - \(error)")
+            return .failure(.writeFailed(error.localizedDescription))
         }
     }
     
     func fetchAll() -> Results<AssetItem>? {
-        guard let realm = realmOptional else {
-            print("StorageManager: Cannot fetch - Realm unavailable")
+        switch fetchAllResult() {
+        case .success(let results):
+            return results
+        case .failure:
             return nil
         }
-        return realm.objects(AssetItem.self).sorted(byKeyPath: "createdAt", ascending: false)
+    }
+    
+    func fetchAllResult() -> Result<Results<AssetItem>, StorageError> {
+        guard let realm = realmOptional else {
+            print("StorageManager: Cannot fetch - Realm unavailable")
+            return .failure(.realmUnavailable)
+        }
+        let results = realm.objects(AssetItem.self).sorted(byKeyPath: "createdAt", ascending: false)
+        return .success(results)
     }
 }

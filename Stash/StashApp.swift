@@ -48,7 +48,7 @@ struct StashApp: SwiftUI.App {
             let fallbackURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("fallback.realm")
             let config = Realm.Configuration(
                 fileURL: fallbackURL,
-                schemaVersion: 5,
+                schemaVersion: 6,
                 migrationBlock: realmMigrationBlock
             )
             Realm.Configuration.defaultConfiguration = config
@@ -58,7 +58,7 @@ struct StashApp: SwiftUI.App {
         let realmURL = container.appendingPathComponent("default.realm")
         let config = Realm.Configuration(
             fileURL: realmURL,
-            schemaVersion: 5,
+            schemaVersion: 6,
             migrationBlock: realmMigrationBlock
         )
         Realm.Configuration.defaultConfiguration = config
@@ -69,7 +69,7 @@ struct StashApp: SwiftUI.App {
     /// Realm 迁移逻辑
     private var realmMigrationBlock: MigrationBlock {
         return { migration, oldSchemaVersion in
-            print("StashApp: Migrating Realm from schema version \(oldSchemaVersion) to 5")
+            print("StashApp: Migrating Realm from schema version \(oldSchemaVersion) to 6")
             // 目前不需要特殊迁移逻辑
             // Realm 会自动处理简单的 schema 变更（添加/删除属性）
             // 如果未来需要复杂迁移，在这里添加
@@ -101,9 +101,13 @@ struct StashApp: SwiftUI.App {
             // 使用 async Realm 初始化
             let realm = try await Realm()
             
-            // 查询所有 imageUrl 为空的 item
+            // 查询所有待抓取且未超过最大重试次数的 item
             let itemsNeedingSnapshots = realm.objects(AssetItem.self)
-                .filter("imageUrl == nil OR imageUrl == ''")
+                .filter(
+                    "snapshotStatusRaw == %@ AND (imageUrl == nil OR imageUrl == '') AND snapshotAttemptCount < %d",
+                    SnapshotStatus.pending.rawValue,
+                    SnapshotRetryPolicy.maxAttempts
+                )
             
             guard !itemsNeedingSnapshots.isEmpty else {
                 return
@@ -120,10 +124,26 @@ struct StashApp: SwiftUI.App {
             for itemInfo in itemsToProcess {
                 let itemId = itemInfo.id
                 let itemUrl = itemInfo.url
+                var attemptCount = 0
+                
+                // 先持久化本次尝试，防止重复无限重试
+                do {
+                    let attemptRealm = try await Realm()
+                    if let item = attemptRealm.object(ofType: AssetItem.self, forPrimaryKey: itemId) {
+                        try attemptRealm.write {
+                            item.snapshotAttemptCount += 1
+                            item.snapshotLastAttemptAt = Date()
+                            item.snapshotLastError = nil
+                            attemptCount = item.snapshotAttemptCount
+                        }
+                    }
+                } catch {
+                    print("StashApp: Failed to record snapshot attempt for \(itemId) - \(error)")
+                }
                 
                 // 调用快照服务
                 let imagePath = await withCheckedContinuation { (continuation: CheckedContinuation<String?, Never>) in
-                    WebSnapshotService.shared.captureSnapshot(for: itemUrl) { path in
+                    AppServices.shared.snapshot.capture(urlString: itemUrl) { path in
                         continuation.resume(returning: path)
                     }
                 }
@@ -135,6 +155,8 @@ struct StashApp: SwiftUI.App {
                         if let itemToUpdate = updateRealm.object(ofType: AssetItem.self, forPrimaryKey: itemId) {
                             try updateRealm.write {
                                 itemToUpdate.imageUrl = imagePath
+                                itemToUpdate.snapshotStatusRaw = SnapshotRetryPolicy.nextStatus(after: .success, attemptCount: attemptCount).rawValue
+                                itemToUpdate.snapshotLastError = SnapshotRetryPolicy.message(for: .success, attemptCount: attemptCount)
                             }
                             print("StashApp: Updated snapshot for item: \(itemId)")
                         }
@@ -142,6 +164,17 @@ struct StashApp: SwiftUI.App {
                         print("StashApp: Failed to update item \(itemId) - \(error)")
                     }
                 } else {
+                    do {
+                        let updateRealm = try await Realm()
+                        if let itemToUpdate = updateRealm.object(ofType: AssetItem.self, forPrimaryKey: itemId) {
+                            try updateRealm.write {
+                                itemToUpdate.snapshotStatusRaw = SnapshotRetryPolicy.nextStatus(after: .timeout, attemptCount: attemptCount).rawValue
+                                itemToUpdate.snapshotLastError = SnapshotRetryPolicy.message(for: .timeout, attemptCount: attemptCount)
+                            }
+                        }
+                    } catch {
+                        print("StashApp: Failed to persist snapshot failure for \(itemId) - \(error)")
+                    }
                     print("StashApp: Failed to capture snapshot for: \(itemUrl)")
                 }
                 

@@ -13,40 +13,12 @@ struct AssetCardView: View {
                     RoundedRectangle(cornerRadius: 20)
                         .fill(coverColor)
                     
-                    if let imageUrl = item.imageUrl, !imageUrl.isEmpty {
-                        // Check if it's a local file URL
-                        if imageUrl.hasPrefix("file://"), let fileURL = URL(string: imageUrl),
-                           let data = try? Data(contentsOf: fileURL),
-                           let uiImage = UIImage(data: data) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } else if let url = URL(string: imageUrl) {
-                            // Remote URL - use AsyncImage
-                            AsyncImage(url: url) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                case .failure(_):
-                                    Text(item.coverEmoji)
-                                        .font(.system(size: 40))
-                                case .empty:
-                                    ProgressView()
-                                @unknown default:
-                                    Text(item.coverEmoji)
-                                        .font(.system(size: 40))
-                                }
-                            }
-                        } else {
-                            Text(item.coverEmoji)
-                                .font(.system(size: 40))
-                        }
-                    } else {
-                        Text(item.coverEmoji)
-                            .font(.system(size: 40))
-                    }
+                    AssetPreviewImageView(
+                        imageUrl: item.imageUrl,
+                        fallbackEmoji: item.coverEmoji,
+                        fallbackEmojiSize: 40,
+                        aspectMode: .fill
+                    )
                 }
                 .frame(width: 88, height: 88)
                 .clipShape(RoundedRectangle(cornerRadius: 20))

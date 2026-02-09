@@ -86,6 +86,7 @@
 		431230062F10B289005B95BF /* Exceptions for "Stash" folder in "ShareExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Shared/AppRuntimeConfig.swift,
 				Shared/AssetItem.swift,
 				Shared/OpenAIClient.swift,
 				Shared/Secrets.swift,

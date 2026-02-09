@@ -1,6 +1,12 @@
 import Foundation
 import RealmSwift
 
+enum SnapshotStatus: String {
+    case pending
+    case succeeded
+    case failed
+}
+
 class AssetItem: Object, ObjectKeyIdentifiable {
     @Persisted(primaryKey: true) var id: UUID
     @Persisted var url: String
@@ -13,6 +19,15 @@ class AssetItem: Object, ObjectKeyIdentifiable {
     @Persisted var tags: List<String>
     @Persisted var coverEmoji: String = "📦"
     @Persisted var coverColor: String = "bg-gray-100"
+    @Persisted var snapshotStatusRaw: String = SnapshotStatus.pending.rawValue
+    @Persisted var snapshotAttemptCount: Int = 0
+    @Persisted var snapshotLastError: String?
+    @Persisted var snapshotLastAttemptAt: Date?
+    
+    var snapshotStatus: SnapshotStatus {
+        get { SnapshotStatus(rawValue: snapshotStatusRaw) ?? .pending }
+        set { snapshotStatusRaw = newValue.rawValue }
+    }
 
     convenience init(url: String, title: String, imageUrl: String? = nil, sourceAppName: String = "Unknown", summary: String? = nil, tags: [String] = [], coverEmoji: String = "📦", coverColor: String = "bg-gray-100") {
         self.init()
@@ -27,5 +42,9 @@ class AssetItem: Object, ObjectKeyIdentifiable {
         self.tags.append(objectsIn: tags)
         self.coverEmoji = coverEmoji
         self.coverColor = coverColor
+        self.snapshotStatusRaw = (imageUrl?.isEmpty == false) ? SnapshotStatus.succeeded.rawValue : SnapshotStatus.pending.rawValue
+        self.snapshotAttemptCount = 0
+        self.snapshotLastError = nil
+        self.snapshotLastAttemptAt = nil
     }
 }
